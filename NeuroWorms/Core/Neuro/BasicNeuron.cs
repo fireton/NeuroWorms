@@ -2,6 +2,6 @@
 {
     public abstract class BasicNeuron
     {
-        public abstract double GetValue();
+        public abstract double Activate();
     }
 }

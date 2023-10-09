@@ -8,7 +8,7 @@ namespace NeuroWorms
     public class FieldRenderer
     {
         private readonly Texture2D whitePixel;
-        private const int CellSize = 8;
+        private const int CellSize = 4;
         private const int CellPadding = 1;
 
         public FieldRenderer(GraphicsDevice graphicsDevice)
@@ -35,7 +35,7 @@ namespace NeuroWorms
             return cellType switch
             {
                 CellType.Empty => Color.White,
-                CellType.WormHead => Color.Blue,
+                CellType.WormHead => Color.DarkCyan,
                 CellType.WormBody => Color.Navy,
                 CellType.Food => Color.OrangeRed,
                 _ => throw new NotImplementedException(),
