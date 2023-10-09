@@ -1,6 +1,6 @@
 ﻿namespace NeuroWorms.Core.Neuro
 {
-    internal class Synapse
+    public class Synapse
     {
         public double Weight { get; set; }
         public BasicNeuron From { get; set; }
@@ -13,7 +13,7 @@
 
         public double GetValue()
         {
-            return From.Activate() * Weight;
+            return From.GetValue() * Weight;
         }
     }
 }

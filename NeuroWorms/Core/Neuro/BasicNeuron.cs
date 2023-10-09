@@ -2,6 +2,25 @@
 {
     public abstract class BasicNeuron
     {
-        public abstract double Activate();
+        private double activatedValue;
+        private bool isActivated;
+        
+        protected abstract double Activate();
+
+        public double GetValue()
+        {
+            if (!isActivated)
+            {
+                activatedValue = Activate();
+            }
+
+            return activatedValue;
+        }
+
+        public void Reset()
+        {
+            isActivated = false;
+        }
+
     }
 }
