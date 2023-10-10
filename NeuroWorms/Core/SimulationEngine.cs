@@ -8,6 +8,7 @@ namespace NeuroWorms.Core
         public Field Field { get; }
         public List<Worm> Worms { get; }
         public int CurrentTick { get; private set; } = 0;
+        public int LongestWorm { get; private set; } = 0;
 
         private readonly Random random = new Random();
 
@@ -50,6 +51,7 @@ namespace NeuroWorms.Core
             }
 
             Worms.RemoveAll(w => !w.IsAlive);
+            UpdateLongestWorm();
             CurrentTick++;
         }
 
@@ -95,7 +97,7 @@ namespace NeuroWorms.Core
 
                 var worm = new Worm(head, body, new StupidRandomBrain())
                 {
-                    CurrentDirection = OppositeDirection(buildDirection)
+                    CurrentDirection = buildDirection.Opposite()
                 };
 
                 worm.RenderToField(Field);
@@ -103,16 +105,16 @@ namespace NeuroWorms.Core
             }
         }
 
-        private MoveDirection OppositeDirection(MoveDirection buildDirection)
+        private void UpdateLongestWorm()
         {
-            return buildDirection switch
+            foreach (var worm in Worms)
             {
-                MoveDirection.Up => MoveDirection.Down,
-                MoveDirection.Down => MoveDirection.Up,
-                MoveDirection.Left => MoveDirection.Right,
-                MoveDirection.Right => MoveDirection.Left,
-                _ => throw new ArgumentOutOfRangeException(nameof(buildDirection), buildDirection, null),
-            };
+                var wormLength = worm.Body.Count + 1;
+                if (wormLength > LongestWorm)
+                {
+                    LongestWorm = wormLength;
+                }
+            }
         }
     }
 }

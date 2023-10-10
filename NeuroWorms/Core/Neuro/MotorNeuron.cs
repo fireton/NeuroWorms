@@ -1,8 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace NeuroWorms.Core.Neuro
 {
@@ -12,10 +8,13 @@ namespace NeuroWorms.Core.Neuro
     public class MotorNeuron : Neuron
     {
         private MoveDirection currentDirection;
+
+        public MotorNeuron(Guid id) : base(id) {  }
+
         public void Reset(MoveDirection currentDirection)
         {
             this.currentDirection = currentDirection;
-            base.Reset();
+            Reset();
         }
 
         public MoveDirection GetDirection()

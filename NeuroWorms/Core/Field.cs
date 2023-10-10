@@ -28,6 +28,12 @@ namespace NeuroWorms.Core
             }
         }
 
+        public CellType this[Position position]
+        {
+            get => this[position.X, position.Y];
+            set => this[position.X, position.Y] = value;
+        }
+
         private bool InField(int x, int y)
         {
             return x >= 0 && x < Width && y >= 0 && y < Height;

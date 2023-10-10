@@ -6,7 +6,10 @@ namespace NeuroWorms.Core.Neuro
 {
     public class Neuron : BasicNeuron
     {
-        public List<Synapse> Synapses = new List<Synapse>();
+        public List<Synapse> Synapses { get; } = new List<Synapse>() ;
+
+        public Neuron(Guid id) : base(id) { }
+
         public double Bias { get; set; }
         
         protected override double Activate()

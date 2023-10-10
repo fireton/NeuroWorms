@@ -13,18 +13,18 @@ namespace NeuroWorms.Core
             Y = y;
         }
 
-        public Position Move(MoveDirection direction)
+        public Position Move(MoveDirection direction, int distance = 1)
         {
             switch (direction)
             {
                 case MoveDirection.Up:
-                    return new Position(X, Y - 1);
+                    return new Position(X, Y - distance);
                 case MoveDirection.Down:
-                    return new Position(X, Y + 1);
+                    return new Position(X, Y + distance);
                 case MoveDirection.Left:
-                    return new Position(X - 1, Y);
+                    return new Position(X - distance, Y);
                 case MoveDirection.Right:
-                    return new Position(X + 1, Y);
+                    return new Position(X + distance, Y);
                 default:
                     throw new ArgumentOutOfRangeException(nameof(direction), direction, null);
             }

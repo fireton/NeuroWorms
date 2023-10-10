@@ -8,19 +8,23 @@ namespace NeuroWorms
     public class Game1 : Game
     {
         
-        private const double SimulationSpeed = 0.05;
-        private GraphicsDeviceManager _graphics;
+        private const double SimulationSpeed = 0.00;
+        private readonly GraphicsDeviceManager _graphics;
         private SpriteBatch _spriteBatch;
         private Color bgColor = new(0xBAE8ED);
-        private SimulationEngine simulationEngine = new();
+        private readonly SimulationEngine simulationEngine = new();
         private FieldRenderer fieldRenderer;
         private double timeSinceLastUpdate = 0.0;
+        private SpriteFont displayFont;
 
         public Game1()
         {
             _graphics = new GraphicsDeviceManager(this);
             _graphics.PreferredBackBufferWidth = 1280;
             _graphics.PreferredBackBufferHeight = 960;
+            _graphics.PreferMultiSampling = true;
+            _graphics.GraphicsProfile = GraphicsProfile.HiDef;
+            _graphics.ApplyChanges();
             Content.RootDirectory = "Content";
             IsMouseVisible = true;
         }
@@ -36,8 +40,7 @@ namespace NeuroWorms
         {
             _spriteBatch = new SpriteBatch(GraphicsDevice);
             fieldRenderer = new FieldRenderer(GraphicsDevice);
-
-            // TODO: use this.Content to load your game content here
+            displayFont = Content.Load<SpriteFont>("DisplayFont");
         }
 
         protected override void Update(GameTime gameTime)
@@ -60,6 +63,8 @@ namespace NeuroWorms
             GraphicsDevice.Clear(bgColor);
             _spriteBatch.Begin();
             fieldRenderer.Render(20, 30, simulationEngine.Field, _spriteBatch);
+            _spriteBatch.DrawString(displayFont, $"Worms count: {simulationEngine.Worms.Count}", new Vector2(950, 30), Color.DarkSlateGray);
+            _spriteBatch.DrawString(displayFont, $"Longest worm: {simulationEngine.LongestWorm}", new Vector2(950, 60), Color.DarkSlateGray);
             _spriteBatch.End();
             base.Draw(gameTime);
         }
