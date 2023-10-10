@@ -1,5 +1,4 @@
-﻿using System;
-using NeuroWorms.Core.Helpers;
+﻿using NeuroWorms.Core.Helpers;
 
 namespace NeuroWorms.Core.Neuro
 {
@@ -14,6 +13,17 @@ namespace NeuroWorms.Core.Neuro
         public double NearestDistance { get; private set; } // relative to ViewDistance, mapped to [-1,1]
         public double NearestAngle { get; private set; } // relative to look direction, mapped to [-1,1]
         public ObjectType NearestType { get; private set; }
+
+        // object type mapped to [-1,1]
+        public double NearestTypeValue => NearestType switch
+        {
+            ObjectType.Nothing => -1,
+            ObjectType.OtherWorm => -0.5,
+            ObjectType.SelfWorm => 0,
+            ObjectType.Food => 0.5,
+            ObjectType.Wall => 1,
+            _ => -1
+        };
 
         public EyeSight(double viewAngle, double viewDistance)
         {
@@ -79,7 +89,7 @@ namespace NeuroWorms.Core.Neuro
 
                 curDistance++;
             }
-            
+
             // No objects found
             NearestDistance = 1;
             NearestAngle = 0;
