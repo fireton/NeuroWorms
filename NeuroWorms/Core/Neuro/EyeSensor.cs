@@ -2,13 +2,13 @@
 
 namespace NeuroWorms.Core.Neuro
 {
-    internal class EyeSensor : SensorNeuron
+    internal abstract class EyeSensor : SensorNeuron
     {
-        public EyeSensor(Guid id) : base(id) { }
+        protected EyeSight EyeSight { get; }
 
-        protected override double Activate()
+        public EyeSensor(Guid id, EyeSight eyeSight) : base(id) 
         {
-            throw new NotImplementedException();
+            EyeSight = eyeSight;
         }
     }
 }

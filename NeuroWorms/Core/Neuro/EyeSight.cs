@@ -25,6 +25,8 @@ namespace NeuroWorms.Core.Neuro
             _ => -1
         };
 
+        private bool isCalculated = false;
+
         public EyeSight(double viewAngle, double viewDistance)
         {
             ViewAngle = viewAngle;
@@ -33,6 +35,12 @@ namespace NeuroWorms.Core.Neuro
 
         public void DetectNearestObject(Worm worm, Field field)
         {
+            // this method is called only once per tick
+            if (isCalculated)
+            {
+                return;
+            }
+            isCalculated = true;
             var lookDirection = worm.CurrentDirection;
             var startAngle = MathHelper.NormalizeAngle(MathHelper.ToRadians(lookDirection.Angle() - ViewAngle / 2));
             var endAngle = MathHelper.NormalizeAngle(MathHelper.ToRadians(lookDirection.Angle() + ViewAngle / 2));
@@ -94,6 +102,11 @@ namespace NeuroWorms.Core.Neuro
             NearestDistance = 1;
             NearestAngle = 0;
             NearestType = ObjectType.Nothing;
+        }
+
+        public void Reset()
+        {
+            isCalculated = false;
         }
 
         private ObjectType GetObjectType(CellType cellType, Worm worm, Position pos)
