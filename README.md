@@ -1,10 +1,10 @@
 # NeuroWorms
 
-This repository represents my attempt to experiment with neural networks. The project focuses on simulating worms, similar to the 'snake' game, evolving their brains through a genetic algorithm and natural selection.
+This repository represents my experiment with neural networks, implemented in C#. The project focuses on simulating worms, similar to the 'snake' game, evolving their brains through a genetic algorithm and natural selection.
 
 ## Introduction
 
-NeuroWorms is a project aimed at exploring the capabilities of neural networks in the context of simulating artificial life. The primary concept revolves around evolving the intelligence of virtual worms in a snake-like game using genetic algorithms and natural selection. These worms start with primitive brains and develop their neural networks over time, eventually becoming more efficient at the game.
+NeuroWorms is a C# project aimed at exploring the capabilities of neural networks in the context of simulating artificial life. The primary concept revolves around evolving the intelligence of virtual worms in a snake-like game using genetic algorithms and natural selection. These worms start with primitive brains and develop their neural networks over time, eventually becoming more efficient at the game.
 
 ## Features
 
@@ -18,22 +18,21 @@ Here are some of the key features of NeuroWorms:
 
 ## Getting Started
 
-If you want to try out NeuroWorms or contribute to its development, here are the steps to get started:
+To get started with NeuroWorms, follow these simple steps:
 
 1. **Clone the Repository:**
    ```bash
    git clone https://github.com/yourusername/NeuroWorms.git
    ```
 
-2. **Install Dependencies:**
-   Make sure you have all the necessary dependencies installed. You can find a list of required packages in the `requirements.txt` file.
+2. **Open in Visual Studio:**
+   - Open the `NeuroWorms.sln` solution file in Visual Studio.
 
-3. **Run the Simulation:**
-   Use the provided scripts to run the simulation and observe the evolution of worms' neural networks.
+You're now ready to explore and run the project in Visual Studio. This will allow you to work with the code, make modifications, and run the simulation to observe the evolution of worms' neural networks.
 
 ## Contributing
 
-If you're interested in contributing to this project, we welcome your contributions! Feel free to open issues, submit pull requests, or suggest new features and improvements.
+If you're interested in contributing to this project, we welcome your contributions! Feel free to open issues, submit pull requests, or suggest new features and improvements on our [GitHub Issues page](https://github.com/fireton/NeuroWorms/issues).
 
 ## License
 
@@ -42,4 +41,3 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 ## Acknowledgments
 
 We want to express our gratitude to the open-source community for its valuable contributions and support.
-
