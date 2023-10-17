@@ -36,7 +36,7 @@ If you're interested in contributing to this project, we welcome your contributi
 
 ## License
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for more details.
+This project is licensed under the MIT License. See the [LICENSE](LICENSE.txt) file for more details.
 
 ## Acknowledgments
 
