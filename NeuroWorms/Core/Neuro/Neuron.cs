@@ -8,7 +8,10 @@ namespace NeuroWorms.Core.Neuro
     {
         public List<Synapse> Synapses { get; } = new List<Synapse>() ;
 
-        public Neuron(Guid id) : base(id) { }
+        public Neuron(Guid id, double bias) : base(id) 
+        {
+            Bias = bias;
+        }
 
         public double Bias { get; set; }
         

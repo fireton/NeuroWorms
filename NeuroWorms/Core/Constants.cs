@@ -12,5 +12,7 @@
         public const int MinWormsInGeneration = 5;
         public const int MaxGenerationTicks   = 3000;
         public const int ChildrenPerGeneration = 10;
+        public const double ViewAngle = 70.0;
+        public const double ViewDistance = 15.0;
     }
 }

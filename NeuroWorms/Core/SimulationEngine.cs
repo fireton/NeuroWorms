@@ -63,12 +63,22 @@ namespace NeuroWorms.Core
             CurrentTick++;
         }
 
+        public void RunTillNextGeneration()
+        {
+            var currentGeneration = CurrentGeneration;
+            while (CurrentGeneration == currentGeneration)
+            {
+                NextMove();
+            }
+        }
+
         private void NextGeneration()
         {
             Field.Clear();
             Worms.Sort((w1, w2) => w2.Body.Count.CompareTo(w1.Body.Count));
             var newWorms = new List<Worm>();
-            for (var j = 0; j < Constants.MinWormsInGeneration; j++)
+            var parentsCount = Math.Min(Constants.MinWormsInGeneration, Worms.Count);
+            for (var j = 0; j < parentsCount; j++)
             {
                 var parent = Worms[j];
                 for (var i = 0; i < Constants.ChildrenPerGeneration; i++)

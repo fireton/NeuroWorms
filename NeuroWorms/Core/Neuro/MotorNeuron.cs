@@ -10,7 +10,7 @@ namespace NeuroWorms.Core.Neuro
     {
         private MoveDirection currentDirection;
 
-        public MotorNeuron(Guid id) : base(id) {  }
+        public MotorNeuron(double bias) : base(NeuroConstants.MotorNeuronId, bias) {  }
 
         public void Reset(MoveDirection currentDirection)
         {
