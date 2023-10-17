@@ -14,6 +14,11 @@ namespace NeuroWorms.Core
             Width = width;
             Height = height;
             cells = new CellType[width, height];
+            Clear();
+        }
+
+        public void Clear()
+        {
             Array.Clear(cells, (int)CellType.Empty, cells.Length);
         }
 

@@ -8,5 +8,9 @@
         public const int FoodNutrition = 1;
         public const int MaxFoodCount = 40;
         public const int StartWormCount = 50;
+
+        public const int MinWormsInGeneration = 5;
+        public const int MaxGenerationTicks   = 3000;
+        public const int ChildrenPerGeneration = 10;
     }
 }

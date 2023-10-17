@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using NeuroWorms.Core.Helpers;
 
 namespace NeuroWorms.Core
@@ -7,7 +8,8 @@ namespace NeuroWorms.Core
     public class SimulationEngine
     {
         public Field Field { get; }
-        public List<Worm> Worms { get; }
+        public List<Worm> Worms { get; private set; }
+        public int CurrentGeneration { get; private set; } = 0;
         public int CurrentTick { get; private set; } = 0;
         public int LongestWorm { get; private set; } = 0;
 
@@ -23,6 +25,11 @@ namespace NeuroWorms.Core
 
         public void NextMove()
         {
+            if (Worms.Count <= Constants.MinWormsInGeneration || CurrentTick > Constants.MaxGenerationTicks)
+            {
+                NextGeneration();
+            }
+            
             for (int i = 0; i < Worms.Count; i++)
             {
                 var worm = Worms[i];
@@ -56,6 +63,27 @@ namespace NeuroWorms.Core
             CurrentTick++;
         }
 
+        private void NextGeneration()
+        {
+            Field.Clear();
+            Worms.Sort((w1, w2) => w2.Body.Count.CompareTo(w1.Body.Count));
+            var newWorms = new List<Worm>();
+            for (var j = 0; j < Constants.MinWormsInGeneration; j++)
+            {
+                var parent = Worms[j];
+                for (var i = 0; i < Constants.ChildrenPerGeneration; i++)
+                {
+                    var brain = parent.Brain.Clone();
+                    var worm = CreateWormOnField(brain);
+                    newWorms.Add(worm);
+                }
+            }
+            Worms = newWorms;
+            InitFood();
+            CurrentTick = 0;
+            CurrentGeneration++;
+        }
+
         private void InitFood()
         {
             for (var i = 0; i < Constants.MaxFoodCount; i++)
@@ -79,31 +107,39 @@ namespace NeuroWorms.Core
         {
             for (var i = 0; i < Constants.StartWormCount; i++)
             {
-                Position head;
-                List<Position> body;
-                MoveDirection buildDirection;
-
-                do
-                {
-                    head = new Position(random.Next(Constants.FieldWidth), random.Next(Constants.FieldHeight));
-                    buildDirection = (MoveDirection)random.Next(4);
-
-                    body = new List<Position>();
-                    for (var j = 0; j < Constants.WormStartLength; j++)
-                    {
-                        var newPiece = body.Count == 0 ? head.Move(buildDirection) : body[body.Count - 1].Move(buildDirection);
-                        body.Add(newPiece);
-                    }
-                } while (Field[head.X, head.Y] != CellType.Empty || body.Exists(p => Field[p.X, p.Y] != CellType.Empty));
-
-                var worm = new Worm(head, body, new StupidRandomBrain())
-                {
-                    CurrentDirection = buildDirection.Opposite()
-                };
-
-                worm.RenderToField(Field);
+                var brain = new StupidRandomBrain();
+                brain.Init();
+                var worm = CreateWormOnField(brain);
                 Worms.Add(worm);
             }
+        }
+
+        private Worm CreateWormOnField(WormBrain brain)
+        {
+            Position head;
+            List<Position> body;
+            MoveDirection buildDirection;
+
+            do
+            {
+                head = new Position(random.Next(Constants.FieldWidth), random.Next(Constants.FieldHeight));
+                buildDirection = (MoveDirection)random.Next(4);
+
+                body = new List<Position>();
+                for (var j = 0; j < Constants.WormStartLength; j++)
+                {
+                    var newPiece = body.Count == 0 ? head.Move(buildDirection) : body[body.Count - 1].Move(buildDirection);
+                    body.Add(newPiece);
+                }
+            } while (Field[head.X, head.Y] != CellType.Empty || body.Exists(p => Field[p.X, p.Y] != CellType.Empty));
+
+            var worm = new Worm(head, body, brain)
+            {
+                CurrentDirection = buildDirection.Opposite()
+            };
+
+            worm.RenderToField(Field);
+            return worm;
         }
 
         private void UpdateLongestWorm()

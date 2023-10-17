@@ -63,8 +63,9 @@ namespace NeuroWorms
             GraphicsDevice.Clear(bgColor);
             _spriteBatch.Begin();
             fieldRenderer.Render(20, 30, simulationEngine.Field, _spriteBatch);
-            _spriteBatch.DrawString(displayFont, $"Worms count: {simulationEngine.Worms.Count}", new Vector2(950, 30), Color.DarkSlateGray);
-            _spriteBatch.DrawString(displayFont, $"Longest worm: {simulationEngine.LongestWorm}", new Vector2(950, 60), Color.DarkSlateGray);
+            _spriteBatch.DrawString(displayFont, $"Moves count: {simulationEngine.CurrentTick}", new Vector2(950, 30), Color.DarkSlateGray);
+            _spriteBatch.DrawString(displayFont, $"Worms count: {simulationEngine.Worms.Count}", new Vector2(950, 60), Color.DarkSlateGray);
+            _spriteBatch.DrawString(displayFont, $"Longest worm: {simulationEngine.LongestWorm}", new Vector2(950, 90), Color.DarkSlateGray);
             _spriteBatch.End();
             base.Draw(gameTime);
         }

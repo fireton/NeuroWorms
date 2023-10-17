@@ -8,6 +8,11 @@ namespace NeuroWorms.Core
         private readonly Random random = new();
         private int keepGoing = 3;
 
+        public override WormBrain Clone()
+        {
+           return new StupidRandomBrain();
+        }
+
         public override MoveDirection GetNextMove(Field field, Worm worm)
         {
             if (keepGoing > 0)
@@ -36,6 +41,11 @@ namespace NeuroWorms.Core
 
             keepGoing = 3;
             return possibleDirections[random.Next(possibleDirections.Count)];
+        }
+
+        public override void Init()
+        {
+            // nothing to init in this brain
         }
     }
 }
