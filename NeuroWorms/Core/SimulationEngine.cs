@@ -13,6 +13,7 @@ namespace NeuroWorms.Core
         public int CurrentGeneration { get; private set; } = 0;
         public int CurrentTick { get; private set; } = 0;
         public int LongestWorm { get; private set; } = 0;
+        public List<Worm> GenerationLongestWorms { get; private set; } = new List<Worm>();
 
         private readonly Random random = new Random();
 
@@ -26,7 +27,7 @@ namespace NeuroWorms.Core
 
         public Task NextMove()
         {
-            if (Worms.Count <= Constants.MinWormsInGeneration || CurrentTick > Constants.MaxGenerationTicks)
+            if (Worms.Count == 0 || CurrentTick > Constants.MaxGenerationTicks)
             {
                 NextGeneration();
             }
@@ -35,7 +36,8 @@ namespace NeuroWorms.Core
             {
                 var worm = Worms[i];
                 var nextMove = worm.Brain.GetNextMove(Field, worm);
-                var nextHead = Field.RoundUp(worm.Head.Move(nextMove));
+                // var nextHead = Field.RoundUp(worm.Head.Move(nextMove));
+                var nextHead = worm.Head.Move(nextMove);
                 var nexCellType = Field[nextHead.X, nextHead.Y];
 
                 switch (nexCellType)
@@ -60,12 +62,13 @@ namespace NeuroWorms.Core
             }
 
             Worms.RemoveAll(w => !w.IsAlive);
+            GenerationLongestWorms.AddRange(Worms);
+            GenerationLongestWorms.Sort((w1, w2) => w2.Body.Count.CompareTo(w1.Body.Count));
+            GenerationLongestWorms = GenerationLongestWorms.GetRange(0, Math.Min(Constants.NumberOfParents, GenerationLongestWorms.Count));
             UpdateLongestWorm();
             CurrentTick++;
             return Task.CompletedTask;
         }
-
-        
 
         public async Task RunTillNextGeneration()
         {
@@ -79,12 +82,11 @@ namespace NeuroWorms.Core
         private void NextGeneration()
         {
             Field.Clear();
-            Worms.Sort((w1, w2) => w2.Body.Count.CompareTo(w1.Body.Count));
             var newWorms = new List<Worm>();
-            var parentsCount = Math.Min(Constants.MinWormsInGeneration, Worms.Count);
+            var parentsCount = Math.Min(Constants.NumberOfParents, GenerationLongestWorms.Count);
             for (var j = 0; j < parentsCount; j++)
             {
-                var parent = Worms[j];
+                var parent = GenerationLongestWorms[j];
                 for (var i = 0; i < Constants.ChildrenPerGeneration; i++)
                 {
                     var brain = parent.Brain.Clone();
@@ -100,6 +102,7 @@ namespace NeuroWorms.Core
             }
             Worms = newWorms;
             InitFood();
+            GenerationLongestWorms.Clear();
             CurrentTick = 0;
             CurrentGeneration++;
         }

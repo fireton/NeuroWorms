@@ -18,9 +18,9 @@ namespace NeuroWorms.Core.Neuro
         public double NearestTypeValue => NearestType switch
         {
             ObjectType.Nothing => -1,
-            ObjectType.OtherWorm => -0.5,
-            ObjectType.SelfWorm => 0,
-            ObjectType.Food => 0.5,
+            ObjectType.OtherWorm => 1,
+            ObjectType.SelfWorm => 1,
+            ObjectType.Food => 0,
             ObjectType.Wall => 1,
             _ => -1
         };
@@ -57,7 +57,6 @@ namespace NeuroWorms.Core.Neuro
                     NearestType = GetObjectType(field[scanForwardPos], worm, scanForwardPos);
                     return;
                 }
-                /*
                 var scanLeftDirection = lookDirection.TurnLeft();
                 var scanRightDirection = lookDirection.TurnRight();
                 var scanSideDistance = 1;
@@ -95,8 +94,6 @@ namespace NeuroWorms.Core.Neuro
                     }
                     scanSideDistance++;
                 }
-                */
-
                 curDistance++;
             }
 

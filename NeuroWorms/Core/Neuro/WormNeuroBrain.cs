@@ -33,8 +33,8 @@ namespace NeuroWorms.Core.Neuro
 
         public override void Init()
         {
-            // add hidden neurons, two neurons per layer
-            for (var i = 0; i < 2; i++)
+            // add hidden neurons, four neurons per layer
+            for (var i = 0; i < 4; i++)
             {
                 neuralNetwork.AddNeuron(new Neuron(Guid.NewGuid(), NeuroRnd.Next()), 1);
                 neuralNetwork.AddNeuron(new Neuron(Guid.NewGuid(), NeuroRnd.Next()), 2);
@@ -60,8 +60,8 @@ namespace NeuroWorms.Core.Neuro
             var hiddenNeuronsList1 = hiddenNeurons1.ToList();
             foreach (var hiddenNeuron2 in hiddenNeurons2)
             {
-                // one or two synapses
-                var numberOfSynapses = NeuroRnd.Next(1, 3);
+                // one or three synapses
+                var numberOfSynapses = NeuroRnd.Next(1, 4);
                 for (var i = 0; i < numberOfSynapses; i++)
                 {
                     IBasicNeuron neuronConnectTo;
