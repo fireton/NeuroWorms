@@ -4,6 +4,7 @@
     {
         public abstract void Init();
         public abstract WormBrain Clone();
+        public abstract void Mutate();
         public abstract MoveDirection GetNextMove(Field field, Worm worm);
     }
 }

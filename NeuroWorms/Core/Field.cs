@@ -39,6 +39,31 @@ namespace NeuroWorms.Core
             set => this[position.X, position.Y] = value;
         }
 
+        public Position RoundUp(Position position)
+        {
+            var x = position.X;
+            var y = position.Y;
+            if (x < 0)
+            {
+                x = Width - 1;
+            }
+            else if (x >= Width)
+            {
+                x = 0;
+            }
+
+            if (y < 0)
+            {
+                y = Height - 1;
+            }
+            else if (y >= Height)
+            {
+                y = 0;
+            }
+
+            return new Position(x, y);
+        }
+
         private bool InField(int x, int y)
         {
             return x >= 0 && x < Width && y >= 0 && y < Height;

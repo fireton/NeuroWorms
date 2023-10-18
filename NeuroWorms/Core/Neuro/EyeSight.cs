@@ -7,7 +7,7 @@ namespace NeuroWorms.Core.Neuro
     // It is used in the EyeSensor class.
     internal class EyeSight
     {
-        public double ViewAngle { get; }
+        public double ViewAngle { get; protected set; }
         public double ViewDistance { get; }
 
         public double NearestDistance { get; private set; } // relative to ViewDistance, mapped to [-1,1]
@@ -57,6 +57,7 @@ namespace NeuroWorms.Core.Neuro
                     NearestType = GetObjectType(field[scanForwardPos], worm, scanForwardPos);
                     return;
                 }
+                /*
                 var scanLeftDirection = lookDirection.TurnLeft();
                 var scanRightDirection = lookDirection.TurnRight();
                 var scanSideDistance = 1;
@@ -94,6 +95,7 @@ namespace NeuroWorms.Core.Neuro
                     }
                     scanSideDistance++;
                 }
+                */
 
                 curDistance++;
             }
@@ -107,6 +109,11 @@ namespace NeuroWorms.Core.Neuro
         public void Reset()
         {
             isCalculated = false;
+        }
+
+        public EyeSight Clone()
+        {
+            return new EyeSight(ViewAngle, ViewDistance);
         }
 
         private ObjectType GetObjectType(CellType cellType, Worm worm, Position pos)

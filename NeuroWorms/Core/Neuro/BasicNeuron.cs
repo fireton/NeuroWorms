@@ -2,12 +2,13 @@
 
 namespace NeuroWorms.Core.Neuro
 {
-    public abstract class BasicNeuron
+    public abstract class BasicNeuron : IBasicNeuron, ISimpleResettable
     {
         private double activatedValue;
         private bool isActivated;
 
         public Guid Id { get; }
+        public int Layer { get; set; }
 
         // This Activate should return value between -1 and 1
         // as we using tanh as activation function.

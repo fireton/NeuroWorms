@@ -47,5 +47,10 @@ namespace NeuroWorms.Core
         {
             // nothing to init in this brain
         }
+
+        public override void Mutate()
+        {
+            // cannot mutate this brain
+        }
     }
 }

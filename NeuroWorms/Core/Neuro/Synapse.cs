@@ -3,9 +3,9 @@
     public class Synapse
     {
         public double Weight { get; set; }
-        public BasicNeuron From { get; set; }
+        public IBasicNeuron From { get; set; }
 
-        public Synapse(double weight, BasicNeuron from)
+        public Synapse(double weight, IBasicNeuron from)
         {
             Weight = weight;
             From = from;

@@ -1,5 +1,4 @@
-﻿using System;
-using NeuroWorms.Core.Helpers;
+﻿using NeuroWorms.Core.Helpers;
 
 namespace NeuroWorms.Core.Neuro
 {
@@ -10,7 +9,7 @@ namespace NeuroWorms.Core.Neuro
     {
         private MoveDirection currentDirection;
 
-        public MotorNeuron(double bias) : base(NeuroConstants.MotorNeuronId, bias) {  }
+        public MotorNeuron(double bias) : base(NeuroConstants.MotorNeuronId, bias) { }
 
         public void Reset(MoveDirection currentDirection)
         {
@@ -36,7 +35,7 @@ namespace NeuroWorms.Core.Neuro
             {
                 return currentDirection;
             }
-            
+
         }
     }
 }

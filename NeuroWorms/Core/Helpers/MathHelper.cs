@@ -4,7 +4,8 @@ namespace NeuroWorms.Core.Helpers
 {
     internal static class MathHelper
     {
-        public static double PI2 = Math.PI * 2;
+        public static readonly double PI2 = Math.PI * 2;
+        public static readonly double PIdiv2 = Math.PI / 2.0;
 
         private static readonly double PIdiv180 = Math.PI / 180.0;
 
@@ -50,7 +51,7 @@ namespace NeuroWorms.Core.Helpers
         {
             var dx = b.X - a.X;
             var dy = b.Y - a.Y;
-            var angle = Math.Atan2(dy, dx);
+            var angle = Math.Atan2(dy, dx) + PIdiv2;
             return (NormalizeAngle(angle), Math.Sqrt(dx * dx + dy * dy));
         }
 

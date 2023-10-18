@@ -1,7 +1,8 @@
-﻿using System;
+﻿using NeuroWorms.Core.Helpers;
+using NeuroWorms.Core.Neuro;
+using System;
 using System.Collections.Generic;
-using System.Globalization;
-using NeuroWorms.Core.Helpers;
+using System.Threading.Tasks;
 
 namespace NeuroWorms.Core
 {
@@ -23,18 +24,18 @@ namespace NeuroWorms.Core
             InitFood();
         }
 
-        public void NextMove()
+        public Task NextMove()
         {
             if (Worms.Count <= Constants.MinWormsInGeneration || CurrentTick > Constants.MaxGenerationTicks)
             {
                 NextGeneration();
             }
-            
+
             for (int i = 0; i < Worms.Count; i++)
             {
                 var worm = Worms[i];
                 var nextMove = worm.Brain.GetNextMove(Field, worm);
-                var nextHead = worm.Head.Move(nextMove);
+                var nextHead = Field.RoundUp(worm.Head.Move(nextMove));
                 var nexCellType = Field[nextHead.X, nextHead.Y];
 
                 switch (nexCellType)
@@ -61,14 +62,17 @@ namespace NeuroWorms.Core
             Worms.RemoveAll(w => !w.IsAlive);
             UpdateLongestWorm();
             CurrentTick++;
+            return Task.CompletedTask;
         }
 
-        public void RunTillNextGeneration()
+        
+
+        public async Task RunTillNextGeneration()
         {
             var currentGeneration = CurrentGeneration;
             while (CurrentGeneration == currentGeneration)
             {
-                NextMove();
+                await NextMove();
             }
         }
 
@@ -84,6 +88,12 @@ namespace NeuroWorms.Core
                 for (var i = 0; i < Constants.ChildrenPerGeneration; i++)
                 {
                     var brain = parent.Brain.Clone();
+
+                    if (random.NextDouble() < Constants.MutationChance)
+                    {
+                        brain.Mutate();
+                    }
+
                     var worm = CreateWormOnField(brain);
                     newWorms.Add(worm);
                 }
@@ -117,7 +127,7 @@ namespace NeuroWorms.Core
         {
             for (var i = 0; i < Constants.StartWormCount; i++)
             {
-                var brain = new StupidRandomBrain();
+                var brain = new WormNeuroBrain();
                 brain.Init();
                 var worm = CreateWormOnField(brain);
                 Worms.Add(worm);

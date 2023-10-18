@@ -22,7 +22,7 @@ namespace NeuroWorms.Core
 
         public void Move(MoveDirection direction, Field field)
         {
-            var newHead = Head.Move(direction);
+            var newHead = field.RoundUp(Head.Move(direction));
             field[newHead.X, newHead.Y] = CellType.WormHead;
             field[Head.X, Head.Y] = CellType.WormBody;
             Body.Insert(0, Head);
