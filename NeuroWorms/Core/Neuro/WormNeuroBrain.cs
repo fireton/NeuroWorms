@@ -35,8 +35,8 @@ namespace NeuroWorms.Core.Neuro
         public override void Init()
         {
             // add hidden neurons
-            Constants.NeuronsInHiddenLayer1.Times(() => neuralNetwork.AddNeuron(new Neuron(Guid.NewGuid(), NeuroRnd.Next()), 1));
-            Constants.NeuronsInHiddenLayer2.Times(() => neuralNetwork.AddNeuron(new Neuron(Guid.NewGuid(), NeuroRnd.Next()), 2));
+            NeuroConstants.NeuronsInHiddenLayer1.Times(() => neuralNetwork.AddNeuron(new Neuron(Guid.NewGuid(), NeuroRnd.Next()), 1));
+            NeuroConstants.NeuronsInHiddenLayer2.Times(() => neuralNetwork.AddNeuron(new Neuron(Guid.NewGuid(), NeuroRnd.Next()), 2));
 
             // now we connect all neurons in sensor layer with all neurons in first hidden layer
             var sensorNeurons = neuralNetwork.GetNeuronsInLayer(0);

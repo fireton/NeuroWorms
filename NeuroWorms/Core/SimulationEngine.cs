@@ -1,4 +1,4 @@
-﻿#define NEEDDEBUGWORM
+﻿//#define NEEDDEBUGWORM
 using NeuroWorms.Core.Helpers;
 using NeuroWorms.Core.Neuro;
 using System;
@@ -23,6 +23,8 @@ namespace NeuroWorms.Core
         #if NEEDDEBUGWORM
         private Worm debugWorm;
         #endif
+
+        private int foodTicks = 0;
 
         public SimulationEngine()
         {
@@ -72,14 +74,33 @@ namespace NeuroWorms.Core
                     default:
                         throw new InvalidOperationException("Unknown cell type");
                 }
+                if (worm.IsAlive && worm.Hunger > Constants.MaxHunger)
+                {
+                    worm.Die();
+#if NEEDDEBUGWORM
+                    if (worm == debugWorm)
+                    {
+                        Debug.WriteLine($"Debug worm died of hunger");
+                    }
+#endif
+                    worm.RemoveFromField(Field);
+                }
                 LongestWorm = Math.Max(LongestWorm, worm.Body.Count + 1);
             }
             
             CurrentTick++;
             LongestAge = Math.Max(LongestAge, Worms.Max(w => w.Age));
+#if NEEDDEBUGWORM
             if (debugWorm != null && debugWorm.IsAlive)
             {
                 debugWorm.PrintDebug();
+            }
+#endif
+            foodTicks++;
+            if (foodTicks > Constants.FoodGenerationTicks)
+            {
+                foodTicks = 0;
+                GenerateNewFood();
             }
 
             return Task.CompletedTask;
@@ -122,6 +143,7 @@ namespace NeuroWorms.Core
             Worms = newWorms;
             InitFood();
             CurrentTick = 0;
+            foodTicks = 0;
             CurrentGeneration++;
 #if NEEDDEBUGWORM
             debugWorm = Worms.First();
@@ -130,10 +152,7 @@ namespace NeuroWorms.Core
 
         private void InitFood()
         {
-            for (var i = 0; i < Constants.MaxFoodCount; i++)
-            {
-                GenerateNewFood();
-            }
+            Constants.StartFoodCount.Times(GenerateNewFood);
         }
 
         private void GenerateNewFood()

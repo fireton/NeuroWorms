@@ -11,5 +11,11 @@ namespace NeuroWorms.Core.Neuro
         public static readonly Guid MotorNeuronId = new("1192BFDE-F516-41FE-BE8C-8EAC91B538AC");
         public static readonly Guid DirXNeuronId = new("AD46D9E7-34B8-4413-8032-43422413047B");
         public static readonly Guid DirYNeuronId = new("92FCF541-9529-4E34-BE95-5B52D5878371");
+        public static readonly Guid HungerSensorId = new("C0A2E4D1-3F5B-4E8F-9A7C-6D1B2F5A0E7D");
+
+        public const double MutationStrength = 0.15;
+        public const int NeuronsInHiddenLayer1 = 12;
+        public const int NeuronsInHiddenLayer2 = 6;
+        public const int PercentOfNeuronsToMutate = 30;
     }
 }

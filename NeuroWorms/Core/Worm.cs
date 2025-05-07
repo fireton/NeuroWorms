@@ -13,6 +13,7 @@ namespace NeuroWorms.Core
         public List<Position> Body { get; } = body;
         public WormBrain Brain { get; } = brain;
         public int Age { get; set; } = 0;
+        public int Hunger { get; set; } = 0;
 
         public readonly Guid Id = Guid.NewGuid();
 
@@ -36,6 +37,7 @@ namespace NeuroWorms.Core
             }
             CurrentDirection = direction;
             Age++;
+            Hunger++;
         }
 
         public void Die()
@@ -55,6 +57,7 @@ namespace NeuroWorms.Core
         public void Eat(int nutrition = 1)
         {
             growCount += nutrition;
+            Hunger = 0;
         }
 
         public void RenderToField(Field field)
