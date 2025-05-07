@@ -36,7 +36,7 @@ namespace NeuroWorms.Core.Helpers
         {
             var dx = b.X - a.X;
             var dy = b.Y - a.Y;
-            var angle = Math.Atan2(dy, dx);
+            var angle = Math.Atan2(dy, dx) + PIdiv2;
             return NormalizeAngle(angle);
         }
 
@@ -80,14 +80,11 @@ namespace NeuroWorms.Core.Helpers
             }
             else
             {
-                if (angle > endAngle)
-                {
-                    return (angle - startAngle) / (endAngle + PI2 - startAngle) * 2 - 1;
-                }
-                else
-                {
-                    return (angle + PI2 - startAngle) / (endAngle + PI2 - startAngle) * 2 - 1;
-                }
+                // shift startAngle to zero
+                var shift = PI2 - endAngle;
+                endAngle = startAngle + shift;
+                angle += shift;
+                return (endAngle - angle) / endAngle * 2 - 1;
             }
         }
     }

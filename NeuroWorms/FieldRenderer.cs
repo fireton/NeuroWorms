@@ -14,7 +14,7 @@ namespace NeuroWorms
         public FieldRenderer(GraphicsDevice graphicsDevice)
         {
             whitePixel = new Texture2D(graphicsDevice, 1, 1);
-            whitePixel.SetData(new[] { Color.White });
+            whitePixel.SetData([Color.White]);
         }
         public void Render(int posX, int posY, Field field, SpriteBatch spriteBatch)
         {

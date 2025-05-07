@@ -17,11 +17,11 @@ namespace NeuroWorms.Core.Neuro
         // object type mapped to [-1,1]
         public double NearestTypeValue => NearestType switch
         {
-            ObjectType.Nothing => -1,
-            ObjectType.OtherWorm => 1,
-            ObjectType.SelfWorm => 1,
+            ObjectType.Nothing => -1.0,
+            ObjectType.OtherWorm => 0.7,
+            ObjectType.SelfWorm => 0.7,
             ObjectType.Food => 0,
-            ObjectType.Wall => 1,
+            ObjectType.Wall => 1.0,
             _ => -1
         };
 

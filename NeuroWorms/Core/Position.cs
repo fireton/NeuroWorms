@@ -2,32 +2,21 @@
 
 namespace NeuroWorms.Core
 {
-    public class Position
+    public class Position(int x, int y)
     {
-        public int X { get; }
-        public int Y { get; }
-
-        public Position(int x, int y)
-        {
-            X = x;
-            Y = y;
-        }
+        public int X { get; } = x;
+        public int Y { get; } = y;
 
         public Position Move(MoveDirection direction, int distance = 1)
         {
-            switch (direction)
+            return direction switch
             {
-                case MoveDirection.Up:
-                    return new Position(X, Y - distance);
-                case MoveDirection.Down:
-                    return new Position(X, Y + distance);
-                case MoveDirection.Left:
-                    return new Position(X - distance, Y);
-                case MoveDirection.Right:
-                    return new Position(X + distance, Y);
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(direction), direction, null);
-            }
+                MoveDirection.Up => new Position(X, Y - distance),
+                MoveDirection.Down => new Position(X, Y + distance),
+                MoveDirection.Left => new Position(X - distance, Y),
+                MoveDirection.Right => new Position(X + distance, Y),
+                _ => throw new ArgumentOutOfRangeException(nameof(direction), direction, null),
+            };
         }
     }
 }

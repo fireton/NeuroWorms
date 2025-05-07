@@ -12,9 +12,13 @@
         public const int NumberOfParents = 10;
         public const int MaxGenerationTicks   = 1000;
         public const int ChildrenPerGeneration = 10;
-        public const double ViewAngle = 90.0;
-        public const double ViewDistance = 5.0;
+        public const double ViewAngle = 120.0;
+        public const double ViewDistance = 15.0;
 
-        public const double MutationChance = 0.3;
+        public const double MutationChance = 0.5;
+        public const double MutationStrength = 0.15;
+
+        public const int NeuronsPerHiddenLayer = 8;
+        public const int NeuronsToMutate = 6;
     }
 }

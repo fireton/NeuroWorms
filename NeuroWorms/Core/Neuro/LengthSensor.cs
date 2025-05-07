@@ -12,6 +12,7 @@
         public void Reset(Worm worm)
         {
             lengthValue = ((worm.Body.Count + 1) / matureLength) * 2.0 - 1.0;
+            base.Reset();
         }
 
         protected override double Activate()

@@ -1,11 +1,7 @@
 ﻿namespace NeuroWorms.Core.Neuro
 {
-    internal class EyeDistanceSensor : EyeSensor
+    internal class EyeDistanceSensor(EyeSight eyeSight) : EyeSensor(NeuroConstants.EyeDistanceSensorId, eyeSight)
     {
-        public EyeDistanceSensor(EyeSight eyeSight) : base(NeuroConstants.EyeDistanceSensorId, eyeSight)
-        {
-        }
-
         protected override double Activate()
         {
             EyeSight.DetectNearestObject(Worm, Field);

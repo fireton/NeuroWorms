@@ -1,24 +1,21 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 
 namespace NeuroWorms.Core
 {
-    public class Worm
+    public class Worm(Position head, List<Position> body, WormBrain brain)
     {
         private int growCount = 0;
 
-        public bool IsAlive { get; set; } = true;   
-        public Position Head { get; private set; }
-        public List<Position> Body { get; }
-        public WormBrain Brain { get; }
+        public bool IsAlive { get; set; } = true;
+        public Position Head { get; private set; } = head;
+        public List<Position> Body { get; } = body;
+        public WormBrain Brain { get; } = brain;
+        public int Age { get; set; } = 0;
+
+        public readonly Guid Id = Guid.NewGuid();
 
         public MoveDirection CurrentDirection { get; set; }
-
-        public Worm(Position head, List<Position> body, WormBrain brain)
-        {
-            Head = head;
-            Body = body;
-            Brain = brain;
-        }
 
         public void Move(MoveDirection direction, Field field)
         {
@@ -29,7 +26,7 @@ namespace NeuroWorms.Core
             Head = newHead;
             if (growCount == 0)
             {
-                field[Body[Body.Count - 1].X, Body[Body.Count - 1].Y] = CellType.Empty;
+                field[Body[^1].X, Body[^1].Y] = CellType.Empty;
                 Body.RemoveAt(Body.Count - 1);
             }
             else
@@ -37,6 +34,7 @@ namespace NeuroWorms.Core
                 growCount--;
             }
             CurrentDirection = direction;
+            Age++;
         }
 
         public void RemoveFromField(Field field)

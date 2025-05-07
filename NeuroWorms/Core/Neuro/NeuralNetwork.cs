@@ -63,6 +63,10 @@ namespace NeuroWorms.Core.Neuro
                 {
                     simpleResettable.Reset();
                 }
+                else
+                {
+                    throw new InvalidOperationException("Unknown neuron type!");
+                }
             });
         }
 
@@ -91,14 +95,17 @@ namespace NeuroWorms.Core.Neuro
 
         public void Mutate()
         {
-            var neuron = GetRandomNeuronWithSynapses();
-            if (NeuroRnd.NextDouble() > 0.5)
+            var neurons = GetRandomNeuronsWithSynapses(Constants.NeuronsToMutate);
+            foreach (var neuron in neurons)
             {
-                MutateBias(neuron);
-            }
-            else
-            {
-                MutateSynapse(neuron);
+                if (NeuroRnd.NextDouble() > 0.5)
+                {
+                    MutateBias(neuron);
+                }
+                else
+                {
+                    MutateSynapse(neuron);
+                }
             }
         }
 
@@ -107,19 +114,33 @@ namespace NeuroWorms.Core.Neuro
             var synapse = neuron.Synapses.Count > 0 ? neuron.Synapses[NeuroRnd.Next(0, neuron.Synapses.Count)] : null;
             if (synapse != null)
             {
-                synapse.Weight = NeuroRnd.Jitter(synapse.Weight);
+                synapse.Weight = NeuroRnd.GaussianJitter(synapse.Weight, Constants.MutationStrength);
             }
         }
 
         private void MutateBias(INeuronWithSynapses neuron)
         {
-            neuron.Bias = NeuroRnd.Jitter(neuron.Bias);
+            neuron.Bias = NeuroRnd.GaussianJitter(neuron.Bias, Constants.MutationStrength);
         }
 
-        private INeuronWithSynapses GetRandomNeuronWithSynapses()
+        private IEnumerable<INeuronWithSynapses> GetRandomNeuronsWithSynapses(int count)
         {
             var neuronsWithSynapses = Neurons.FindAll(n => n is INeuronWithSynapses).ConvertAll(n => (INeuronWithSynapses)n);
-            return neuronsWithSynapses[NeuroRnd.Next(0, neuronsWithSynapses.Count)];
+
+            if (neuronsWithSynapses.Count < count)
+            {
+                throw new ArgumentOutOfRangeException(nameof(count), "Not enough neurons with synapses to select from.");
+            }
+
+            // select number of unique random neurons
+            var randomNeurons = new HashSet<INeuronWithSynapses>();
+            while (randomNeurons.Count < count)
+            {
+                var randomNeuron = neuronsWithSynapses[NeuroRnd.Next(0, neuronsWithSynapses.Count)];
+                randomNeurons.Add(randomNeuron);
+            }
+
+            return randomNeurons;
         }
     }
 }

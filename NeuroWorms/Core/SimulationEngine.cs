@@ -1,6 +1,7 @@
 ﻿using NeuroWorms.Core.Helpers;
 using NeuroWorms.Core.Neuro;
 using System;
+using System.Linq;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
@@ -13,28 +14,29 @@ namespace NeuroWorms.Core
         public int CurrentGeneration { get; private set; } = 0;
         public int CurrentTick { get; private set; } = 0;
         public int LongestWorm { get; private set; } = 0;
-        public List<Worm> GenerationLongestWorms { get; private set; } = new List<Worm>();
+        public int AliveWormsCount => Worms?.Count(w => w.IsAlive) ?? 0;
 
         private readonly Random random = new Random();
 
         public SimulationEngine()
         {
             Field = new Field(Constants.FieldWidth, Constants.FieldHeight);
-            Worms = new List<Worm>();
+            Worms = [];
             InitWorms();
             InitFood();
         }
 
         public Task NextMove()
         {
-            if (Worms.Count == 0 || CurrentTick > Constants.MaxGenerationTicks)
+            var aliveWorms = Worms.FindAll(w => w.IsAlive);
+
+            if (aliveWorms.Count == 0 || CurrentTick > Constants.MaxGenerationTicks)
             {
                 NextGeneration();
             }
 
-            for (int i = 0; i < Worms.Count; i++)
+            foreach (var worm in aliveWorms)
             {
-                var worm = Worms[i];
                 var nextMove = worm.Brain.GetNextMove(Field, worm);
                 // var nextHead = Field.RoundUp(worm.Head.Move(nextMove));
                 var nextHead = worm.Head.Move(nextMove);
@@ -57,15 +59,11 @@ namespace NeuroWorms.Core
                         worm.RemoveFromField(Field);
                         break;
                     default:
-                        throw new ArgumentOutOfRangeException();
+                        throw new InvalidOperationException("Unknown cell type");
                 }
+                LongestWorm = Math.Max(LongestWorm, worm.Body.Count + 1);
             }
-
-            Worms.RemoveAll(w => !w.IsAlive);
-            GenerationLongestWorms.AddRange(Worms);
-            GenerationLongestWorms.Sort((w1, w2) => w2.Body.Count.CompareTo(w1.Body.Count));
-            GenerationLongestWorms = GenerationLongestWorms.GetRange(0, Math.Min(Constants.NumberOfParents, GenerationLongestWorms.Count));
-            UpdateLongestWorm();
+            
             CurrentTick++;
             return Task.CompletedTask;
         }
@@ -83,17 +81,21 @@ namespace NeuroWorms.Core
         {
             Field.Clear();
             var newWorms = new List<Worm>();
-            var parentsCount = Math.Min(Constants.NumberOfParents, GenerationLongestWorms.Count);
-            for (var j = 0; j < parentsCount; j++)
+            var parents = Worms
+                .OrderByDescending(w => w.Body.Count + 1)
+                .ThenByDescending(w => w.Age)
+                .Take(Constants.NumberOfParents)
+                .ToList();
+
+            foreach (var parent in parents)
             {
-                var parent = GenerationLongestWorms[j];
                 for (var i = 0; i < Constants.ChildrenPerGeneration; i++)
                 {
                     var brain = parent.Brain.Clone();
 
-                    if (random.NextDouble() < Constants.MutationChance)
+                    if (NeuroRnd.NextDouble() < Constants.MutationChance)
                     {
-                        brain.Mutate();
+                       brain.Mutate();
                     }
 
                     var worm = CreateWormOnField(brain);
@@ -102,7 +104,6 @@ namespace NeuroWorms.Core
             }
             Worms = newWorms;
             InitFood();
-            GenerationLongestWorms.Clear();
             CurrentTick = 0;
             CurrentGeneration++;
         }
@@ -148,10 +149,10 @@ namespace NeuroWorms.Core
                 head = new Position(random.Next(Constants.FieldWidth), random.Next(Constants.FieldHeight));
                 buildDirection = (MoveDirection)random.Next(4);
 
-                body = new List<Position>();
+                body = [];
                 for (var j = 0; j < Constants.WormStartLength; j++)
                 {
-                    var newPiece = body.Count == 0 ? head.Move(buildDirection) : body[body.Count - 1].Move(buildDirection);
+                    var newPiece = body.Count == 0 ? head.Move(buildDirection) : body[^1].Move(buildDirection);
                     body.Add(newPiece);
                 }
             } while (Field[head.X, head.Y] != CellType.Empty || body.Exists(p => Field[p.X, p.Y] != CellType.Empty));
@@ -163,18 +164,6 @@ namespace NeuroWorms.Core
 
             worm.RenderToField(Field);
             return worm;
-        }
-
-        private void UpdateLongestWorm()
-        {
-            foreach (var worm in Worms)
-            {
-                var wormLength = worm.Body.Count + 1;
-                if (wormLength > LongestWorm)
-                {
-                    LongestWorm = wormLength;
-                }
-            }
         }
     }
 }

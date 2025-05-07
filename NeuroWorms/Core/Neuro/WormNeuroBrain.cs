@@ -19,7 +19,7 @@ namespace NeuroWorms.Core.Neuro
         public override WormBrain Clone()
         {
             var cloneEyeSight = eyeSight.Clone();
-            var cloneNeuralNetwork = neuralNetwork.Clone(eyeSight);  
+            var cloneNeuralNetwork = neuralNetwork.Clone(cloneEyeSight);  
             var clone = new WormNeuroBrain(cloneEyeSight, cloneNeuralNetwork);
             return clone;
         }
@@ -34,7 +34,7 @@ namespace NeuroWorms.Core.Neuro
         public override void Init()
         {
             // add hidden neurons, four neurons per layer
-            for (var i = 0; i < 4; i++)
+            for (var i = 0; i < Constants.NeuronsPerHiddenLayer; i++)
             {
                 neuralNetwork.AddNeuron(new Neuron(Guid.NewGuid(), NeuroRnd.Next()), 1);
                 neuralNetwork.AddNeuron(new Neuron(Guid.NewGuid(), NeuroRnd.Next()), 2);
@@ -56,27 +56,15 @@ namespace NeuroWorms.Core.Neuro
             {
                 motorNeuron.Synapses.Add(new Synapse(NeuroRnd.Next(), hiddenNeuron));
             }
-            // now we add random synapses between neurons in hidden layers
-            var hiddenNeuronsList1 = hiddenNeurons1.ToList();
-            foreach (var hiddenNeuron2 in hiddenNeurons2)
+
+            // now we connect all neurons in first hidden layer with all neurons in second hidden layer
+            foreach (var hiddenNeuron1 in hiddenNeurons1)
             {
-                // one or three synapses
-                var numberOfSynapses = NeuroRnd.Next(1, 4);
-                for (var i = 0; i < numberOfSynapses; i++)
+                foreach (var hiddenNeuron2 in hiddenNeurons2)
                 {
-                    IBasicNeuron neuronConnectTo;
-                    
-                    do
-                    {
-                        neuronConnectTo = hiddenNeuronsList1[NeuroRnd.Next(0, hiddenNeuronsList1.Count)];
-                    } 
-                    while (hiddenNeuron2.IsConnectedWith(neuronConnectTo));
-
-
-                    hiddenNeuron2.Synapses.Add(new Synapse(NeuroRnd.Next(), neuronConnectTo));
+                    hiddenNeuron2.Synapses.Add(new Synapse(NeuroRnd.Next(), hiddenNeuron1));
                 }
             }
-
         }
 
         public override void Mutate()
