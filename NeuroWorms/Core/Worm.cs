@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 
 namespace NeuroWorms.Core
 {
@@ -7,7 +8,7 @@ namespace NeuroWorms.Core
     {
         private int growCount = 0;
 
-        public bool IsAlive { get; set; } = true;
+        public bool IsAlive { get; private set; } = true;
         public Position Head { get; private set; } = head;
         public List<Position> Body { get; } = body;
         public WormBrain Brain { get; } = brain;
@@ -37,6 +38,11 @@ namespace NeuroWorms.Core
             Age++;
         }
 
+        public void Die()
+        {
+            IsAlive = false;
+        }
+
         public void RemoveFromField(Field field)
         {
             field[Head.X, Head.Y] = CellType.Empty;
@@ -58,6 +64,12 @@ namespace NeuroWorms.Core
             {
                 field[bodyPart.X, bodyPart.Y] = CellType.WormBody;
             }
+        }
+
+        public void PrintDebug()
+        {
+            Debug.WriteLine($"Worm with age {Age} and length {Body.Count} to direction {CurrentDirection}");
+            Brain.PrintDebug();
         }
     }
 }

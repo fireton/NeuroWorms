@@ -36,7 +36,7 @@ namespace NeuroWorms.Core.Helpers
         {
             var dx = b.X - a.X;
             var dy = b.Y - a.Y;
-            var angle = Math.Atan2(dy, dx) + PIdiv2;
+            var angle = Math.Atan2(dy, dx);
             return NormalizeAngle(angle);
         }
 
@@ -51,7 +51,7 @@ namespace NeuroWorms.Core.Helpers
         {
             var dx = b.X - a.X;
             var dy = b.Y - a.Y;
-            var angle = Math.Atan2(dy, dx) + PIdiv2;
+            var angle = Math.Atan2(dy, dx);
             return (NormalizeAngle(angle), Math.Sqrt(dx * dx + dy * dy));
         }
 
@@ -70,22 +70,17 @@ namespace NeuroWorms.Core.Helpers
             }
         }
 
-        // Function maps angle between two angles to [-1,1] range.
-        // Assumes that angle is always between startAngle and endAngle.
         public static double MapAngle(double angle, double startAngle, double endAngle)
         {
-            if (startAngle < endAngle)
-            {
-                return (angle - startAngle) / (endAngle - startAngle) * 2 - 1;
-            }
-            else
-            {
-                // shift startAngle to zero
-                var shift = PI2 - endAngle;
-                endAngle = startAngle + shift;
-                angle += shift;
-                return (endAngle - angle) / endAngle * 2 - 1;
-            }
+            // Приводим углы к диапазону [0, 2π]
+            angle = NormalizeAngle(angle);
+            startAngle = NormalizeAngle(startAngle);
+            endAngle = NormalizeAngle(endAngle);
+
+            double delta = NormalizeAngle(endAngle - startAngle);
+            double relative = NormalizeAngle(angle - startAngle);
+
+            return (relative / delta) * 2 - 1;
         }
     }
 }

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Linq;
+using NeuroWorms.Core.Helpers;
 
 namespace NeuroWorms.Core.Neuro
 {
@@ -33,12 +34,10 @@ namespace NeuroWorms.Core.Neuro
 
         public override void Init()
         {
-            // add hidden neurons, four neurons per layer
-            for (var i = 0; i < Constants.NeuronsPerHiddenLayer; i++)
-            {
-                neuralNetwork.AddNeuron(new Neuron(Guid.NewGuid(), NeuroRnd.Next()), 1);
-                neuralNetwork.AddNeuron(new Neuron(Guid.NewGuid(), NeuroRnd.Next()), 2);
-            }
+            // add hidden neurons
+            Constants.NeuronsInHiddenLayer1.Times(() => neuralNetwork.AddNeuron(new Neuron(Guid.NewGuid(), NeuroRnd.Next()), 1));
+            Constants.NeuronsInHiddenLayer2.Times(() => neuralNetwork.AddNeuron(new Neuron(Guid.NewGuid(), NeuroRnd.Next()), 2));
+
             // now we connect all neurons in sensor layer with all neurons in first hidden layer
             var sensorNeurons = neuralNetwork.GetNeuronsInLayer(0);
             var hiddenNeurons1 = neuralNetwork.GetNeuronWithSynapsesInLayer(1);
@@ -49,6 +48,7 @@ namespace NeuroWorms.Core.Neuro
                     hiddenNeuron.Synapses.Add(new Synapse(NeuroRnd.Next(), sensorNeuron));
                 }
             }
+
             // now we connect all neurons in second hidden layer with motor neuron
             var hiddenNeurons2 = neuralNetwork.GetNeuronWithSynapsesInLayer(2);
             var motorNeuron = neuralNetwork.GetNeuronWithSynapsesInLayer(3).FirstOrDefault() ?? throw new InvalidOperationException("Motor neuron not found!"); // it's only one neuron in motor layer
@@ -70,6 +70,11 @@ namespace NeuroWorms.Core.Neuro
         public override void Mutate()
         {
             neuralNetwork.Mutate();
+        }
+
+        public override void PrintDebug()
+        {
+            eyeSight.PrintDebug();
         }
     }
 }

@@ -1,12 +1,11 @@
 ﻿using System;
 
-namespace NeuroWorms.Core
+namespace NeuroWorms.Core;
+
+public enum MoveDirection
 {
-    public enum MoveDirection
-    {
-        Up,
-        Down,
-        Left,
-        Right
-    }
+    Up,
+    Down,
+    Left,
+    Right
 }

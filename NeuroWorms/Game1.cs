@@ -2,6 +2,8 @@
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using NeuroWorms.Core;
+using System;
+using System.Diagnostics;
 using System.Threading.Tasks;
 
 namespace NeuroWorms
@@ -88,6 +90,7 @@ namespace NeuroWorms
             _spriteBatch.DrawString(displayFont, $"Moves count: {simulationEngine.CurrentTick}", new Vector2(1000, 70), Color.DarkSlateGray);
             _spriteBatch.DrawString(displayFont, $"Worms count: {simulationEngine.AliveWormsCount}", new Vector2(1000, 100), Color.DarkSlateGray);
             _spriteBatch.DrawString(displayFont, $"Longest worm: {simulationEngine.LongestWorm}", new Vector2(1000, 130), Color.DarkSlateGray);
+            _spriteBatch.DrawString(displayFont, $"Eldest worm: {simulationEngine.LongestAge}", new Vector2(1000, 160), Color.DarkSlateGray);
             if (skipGenerations)
             {
                    _spriteBatch.DrawString(displayFont, $"Skipping generations", new Vector2(1000, 200), Color.DarkSlateGray);

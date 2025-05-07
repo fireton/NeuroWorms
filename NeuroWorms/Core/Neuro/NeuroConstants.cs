@@ -9,5 +9,7 @@ namespace NeuroWorms.Core.Neuro
         public static readonly Guid EyeObjectSensorId = new("0116743f-2803-4d25-a5f0-22c6e22ca729");
         public static readonly Guid LengthSensorId = new("02C916E0-2F10-4EF9-9C98-FFDCA43F6F02");
         public static readonly Guid MotorNeuronId = new("1192BFDE-F516-41FE-BE8C-8EAC91B538AC");
+        public static readonly Guid DirXNeuronId = new("AD46D9E7-34B8-4413-8032-43422413047B");
+        public static readonly Guid DirYNeuronId = new("92FCF541-9529-4E34-BE95-5B52D5878371");
     }
 }

@@ -18,5 +18,10 @@ namespace NeuroWorms.Core
                 _ => throw new ArgumentOutOfRangeException(nameof(direction), direction, null),
             };
         }
+
+        public override string ToString()
+        {
+            return $"({X}, {Y})";
+        }
     }
 }

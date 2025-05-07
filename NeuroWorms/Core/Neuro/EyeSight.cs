@@ -1,4 +1,6 @@
-﻿using NeuroWorms.Core.Helpers;
+﻿using System;
+using System.Diagnostics;
+using NeuroWorms.Core.Helpers;
 
 namespace NeuroWorms.Core.Neuro
 {
@@ -35,73 +37,70 @@ namespace NeuroWorms.Core.Neuro
 
         public void DetectNearestObject(Worm worm, Field field)
         {
-            // this method is called only once per tick
-            if (isCalculated)
-            {
-                return;
-            }
+            if (isCalculated) return;
             isCalculated = true;
+
             var lookDirection = worm.CurrentDirection;
             var startAngle = MathHelper.NormalizeAngle(MathHelper.ToRadians(lookDirection.Angle() - ViewAngle / 2));
             var endAngle = MathHelper.NormalizeAngle(MathHelper.ToRadians(lookDirection.Angle() + ViewAngle / 2));
 
-            // start scan
-            var curDistance = 1;
-            while (curDistance <= ViewDistance)
+            for (int curDistance = 1; curDistance <= ViewDistance; curDistance++)
             {
-                var scanForwardPos = worm.Head.Move(lookDirection, curDistance);
-                if (field[scanForwardPos] != CellType.Empty)
+                var forwardPos = worm.Head.Move(lookDirection, curDistance);
+                if (field[forwardPos] != CellType.Empty)
                 {
-                    NearestDistance = curDistance / ViewDistance * 2 - 1; // relative to ViewDistance
-                    NearestAngle = 0.0; // relative to lookDirection
-                    NearestType = GetObjectType(field[scanForwardPos], worm, scanForwardPos);
+                    NearestDistance = curDistance / ViewDistance * 2 - 1;
+                    NearestAngle = 0.0;
+                    NearestType = GetObjectType(field[forwardPos], worm, forwardPos);
                     return;
                 }
-                var scanLeftDirection = lookDirection.TurnLeft();
-                var scanRightDirection = lookDirection.TurnRight();
+
                 var scanSideDistance = 1;
+                var scanLeftDir = lookDirection.TurnLeft();
+                var scanRightDir = lookDirection.TurnRight();
 
                 while (true)
                 {
-                    var scanLeftPos = scanForwardPos.Move(scanLeftDirection, scanSideDistance);
-                    (var scanLeftAngle, var scanPosDistance) = MathHelper.AngleAndDistance(worm.Head, scanLeftPos);
-                    if (scanPosDistance <= ViewDistance && MathHelper.IsAngleBetween(scanLeftAngle, startAngle, endAngle))
+                    // LEFT
+                    var leftPos = forwardPos.Move(scanLeftDir, scanSideDistance);
+                    (var leftAngle, var leftDist) = MathHelper.AngleAndDistance(worm.Head, leftPos);
+                    if (leftDist <= ViewDistance && MathHelper.IsAngleBetween(leftAngle, startAngle, endAngle))
                     {
-                        if (field[scanLeftPos] != CellType.Empty)
+                        if (field[leftPos] != CellType.Empty)
                         {
-                            NearestDistance = scanPosDistance / ViewDistance * 2 - 1;
-                            NearestAngle = MathHelper.MapAngle(scanLeftAngle, startAngle, endAngle); // relative to lookDirection
-                            NearestType = GetObjectType(field[scanLeftPos], worm, scanLeftPos);
+                            NearestDistance = leftDist / ViewDistance * 2 - 1;
+                            NearestAngle = MathHelper.MapAngle(leftAngle, startAngle, endAngle);
+                            NearestType = GetObjectType(field[leftPos], worm, leftPos);
                             return;
                         }
                     }
-                    else
-                    {
-                        break;
-                    }
+                    else break;
 
-                    var scanRightPos = scanForwardPos.Move(scanRightDirection, scanSideDistance);
-                    var scanRightAngle = MathHelper.AngleBetween(worm.Head, scanRightPos);
-
-                    // Since left and right scans are symmetrical, we can skip the check if the angle is between start and end
-                    // Also the distance is the same and we know that scanPosDistance <= ViewDistance
-                    if (field[scanRightPos] != CellType.Empty)
+                    // RIGHT
+                    var rightPos = forwardPos.Move(scanRightDir, scanSideDistance);
+                    (var rightAngle, var rightDist) = MathHelper.AngleAndDistance(worm.Head, rightPos);
+                    if (rightDist <= ViewDistance && MathHelper.IsAngleBetween(rightAngle, startAngle, endAngle))
                     {
-                        NearestDistance = scanPosDistance / ViewDistance * 2 - 1;
-                        NearestAngle = MathHelper.MapAngle(scanRightAngle, startAngle, endAngle); // relative to lookDirection
-                        NearestType = GetObjectType(field[scanRightPos], worm, scanRightPos);
-                        return;
+                        if (field[rightPos] != CellType.Empty)
+                        {
+                            NearestDistance = rightDist / ViewDistance * 2 - 1;
+                            NearestAngle = MathHelper.MapAngle(rightAngle, startAngle, endAngle);
+                            NearestType = GetObjectType(field[rightPos], worm, rightPos);
+                            return;
+                        }
                     }
+                    else break;
+
                     scanSideDistance++;
                 }
-                curDistance++;
             }
 
-            // No objects found
-            NearestDistance = 1;
+            // Ничего не найдено
+            NearestDistance = -1; // дальняя точка зрения
             NearestAngle = 0;
             NearestType = ObjectType.Nothing;
         }
+
 
         public void Reset()
         {
@@ -124,6 +123,18 @@ namespace NeuroWorms.Core.Neuro
                 CellType.WormBody => worm.Body.Contains(pos) ? ObjectType.SelfWorm : ObjectType.OtherWorm,
                 _ => ObjectType.Nothing
             };
+        }
+
+        internal void PrintDebug()
+        {
+            if (NearestType == ObjectType.Nothing)
+            {
+                Debug.WriteLine("Nothing detected");
+            }
+            else
+            {
+                Debug.WriteLine($"Detected {NearestType} at distance {NearestDistance} and angle {NearestAngle}");
+            }
         }
     }
 

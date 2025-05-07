@@ -42,19 +42,19 @@ namespace NeuroWorms.Core.Helpers
 
         public static double Angle(this MoveDirection direction) => direction switch
         {
-            MoveDirection.Up => 0.0,
-            MoveDirection.Down => 180.0,
-            MoveDirection.Left => 270.0,
-            MoveDirection.Right => 90.0,
+            MoveDirection.Right => 0.0,
+            MoveDirection.Up => 90.0,
+            MoveDirection.Left => 180.0,
+            MoveDirection.Down => 270.0,
             _ => 0.0,
         };
 
         public static double AngleRad(this MoveDirection direction) => direction switch
         {
-            MoveDirection.Up => 0.0,
-            MoveDirection.Down => Math.PI,
-            MoveDirection.Left => Math.PI * 1.5,
-            MoveDirection.Right => Math.PI * 0.5,
+            MoveDirection.Right => 0.0,
+            MoveDirection.Up => Math.PI * 0.5,
+            MoveDirection.Left => Math.PI,
+            MoveDirection.Down => Math.PI * 1.5,
             _ => 0.0,
         };
     }

@@ -21,6 +21,8 @@ namespace NeuroWorms.Core.Neuro
             AddNeuron(new EyeDistanceSensor(eyeSight), 0);
             AddNeuron(new EyeObjectSensor(eyeSight), 0);
             AddNeuron(new LengthSensor(), 0);
+            AddNeuron(new DirectionXSensor(), 0);
+            AddNeuron(new DirectionYSensor(), 0);
             // and motor neuron
             MotorNeuron = new MotorNeuron(NeuroRnd.Next());
             AddNeuron(MotorNeuron, 3);
@@ -95,30 +97,31 @@ namespace NeuroWorms.Core.Neuro
 
         public void Mutate()
         {
-            var neurons = GetRandomNeuronsWithSynapses(Constants.NeuronsToMutate);
+            var mutableNeurons = Constants.NeuronsInHiddenLayer1 + Constants.NeuronsInHiddenLayer2 + 1;
+            var neuronsToMutate = (int)Math.Max(1, Math.Round(mutableNeurons * Constants.PercentOfNeuronsToMutate / 100.0));
+            var neurons = GetRandomNeuronsWithSynapses(neuronsToMutate);
             foreach (var neuron in neurons)
             {
-                if (NeuroRnd.NextDouble() > 0.5)
-                {
+                if (NeuroRnd.NextDouble() < 0.5)
                     MutateBias(neuron);
-                }
-                else
-                {
-                    MutateSynapse(neuron);
-                }
+
+                if (NeuroRnd.NextDouble() < 0.7)
+                    MutateSynapses(neuron);
             }
         }
 
-        private void MutateSynapse(INeuronWithSynapses neuron)
+        private static void MutateSynapses(INeuronWithSynapses neuron)
         {
-            var synapse = neuron.Synapses.Count > 0 ? neuron.Synapses[NeuroRnd.Next(0, neuron.Synapses.Count)] : null;
-            if (synapse != null)
+            if (neuron.Synapses.Count == 0) return;
+
+            int toMutate = Math.Max(1, neuron.Synapses.Count / 3); // 33%
+            foreach (var synapse in neuron.Synapses.OrderBy(_ => NeuroRnd.NextDouble()).Take(toMutate))
             {
                 synapse.Weight = NeuroRnd.GaussianJitter(synapse.Weight, Constants.MutationStrength);
             }
         }
 
-        private void MutateBias(INeuronWithSynapses neuron)
+        private static void MutateBias(INeuronWithSynapses neuron)
         {
             neuron.Bias = NeuroRnd.GaussianJitter(neuron.Bias, Constants.MutationStrength);
         }
@@ -133,14 +136,7 @@ namespace NeuroWorms.Core.Neuro
             }
 
             // select number of unique random neurons
-            var randomNeurons = new HashSet<INeuronWithSynapses>();
-            while (randomNeurons.Count < count)
-            {
-                var randomNeuron = neuronsWithSynapses[NeuroRnd.Next(0, neuronsWithSynapses.Count)];
-                randomNeurons.Add(randomNeuron);
-            }
-
-            return randomNeurons;
+            return neuronsWithSynapses.OrderBy(_ => NeuroRnd.NextDouble()).Take(count);
         }
     }
 }

@@ -5,17 +5,11 @@ namespace NeuroWorms.Core.Neuro
     // This neuron returns new direction for a worm. It should take in account
     // current direction of a worm as worm can't turn more than 90 degrees per
     // turn.
-    public class MotorNeuron : Neuron
+    public class MotorNeuron : Neuron, IWormResettable
     {
         private MoveDirection currentDirection;
 
         public MotorNeuron(double bias) : base(NeuroConstants.MotorNeuronId, bias) { }
-
-        public void Reset(MoveDirection currentDirection)
-        {
-            this.currentDirection = currentDirection;
-            Reset();
-        }
 
         public MoveDirection GetDirection()
         {
@@ -36,6 +30,12 @@ namespace NeuroWorms.Core.Neuro
                 return currentDirection;
             }
 
+        }
+
+        public void Reset(Worm worm)
+        {
+            currentDirection = worm.CurrentDirection;
+            Reset();
         }
     }
 }
