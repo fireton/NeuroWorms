@@ -1,11 +1,12 @@
-﻿namespace NeuroWorms.Core.Neuro
+﻿using System;
+
+namespace NeuroWorms.Core.Neuro;
+
+internal class EyeDistanceSensor(Guid id, EyeSight eyeSight, ObjectType objectType) : EyeSensor(id, eyeSight)
 {
-    internal class EyeDistanceSensor(EyeSight eyeSight) : EyeSensor(NeuroConstants.EyeDistanceSensorId, eyeSight)
+    protected override double Activate()
     {
-        protected override double Activate()
-        {
-            EyeSight.DetectNearestObject(Worm, Field);
-            return EyeSight.NearestDistance;
-        }
+        EyeSight.DetectObjects(Worm, Field);
+        return EyeSight.Found.TryGetValue(objectType, out var info) ? info.DistanceValue : 0.0;
     }
 }

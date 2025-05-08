@@ -17,14 +17,27 @@ namespace NeuroWorms.Core.Neuro
         private void AddSensorsAndMotor(EyeSight eyeSight)
         {
             // first we add sensor neurons
-            AddNeuron(new EyeAngleSensor(eyeSight), 0);
-            AddNeuron(new EyeDistanceSensor(eyeSight), 0);
-            AddNeuron(new EyeObjectSensor(eyeSight), 0);
+            // food detection
+            AddNeuron(new EyeObjectDetectionSensor(NeuroConstants.FoodPresenceSensorId, eyeSight, ObjectType.Food), 0);
+            AddNeuron(new EyeAngleSensor(NeuroConstants.FoodAngleSensorId, eyeSight, ObjectType.Food), 0);
+            AddNeuron(new EyeDistanceSensor(NeuroConstants.FoodDistanceSensorId, eyeSight, ObjectType.Food), 0);
+            // worm detection
+            AddNeuron(new EyeObjectDetectionSensor(NeuroConstants.WormPresenceSensorId, eyeSight, ObjectType.Worm), 0);
+            AddNeuron(new EyeAngleSensor(NeuroConstants.WormAngleSensorId, eyeSight, ObjectType.Worm), 0);
+            AddNeuron(new EyeDistanceSensor(NeuroConstants.WormDistanceSensorId, eyeSight, ObjectType.Worm), 0);
+            // wall detection
+            AddNeuron(new EyeObjectDetectionSensor(NeuroConstants.WallPresenceSensorId, eyeSight, ObjectType.Wall), 0);
+            AddNeuron(new EyeAngleSensor(NeuroConstants.WallAngleSensorId, eyeSight, ObjectType.Wall), 0);
+            AddNeuron(new EyeDistanceSensor(NeuroConstants.WallDistanceSensorId, eyeSight, ObjectType.Wall), 0);
+            // obstacle detection
+            AddNeuron(new ObstacleAtLeftSensor(), 0);
+            AddNeuron(new ObstacleAtRightSensor(), 0);
+            // worm self-awareness
             AddNeuron(new LengthSensor(), 0);
             AddNeuron(new DirectionXSensor(), 0);
             AddNeuron(new DirectionYSensor(), 0);
             AddNeuron(new HungerSensor(), 0);
-            // and motor neuron
+            // and then motor neuron
             MotorNeuron = new MotorNeuron(NeuroRnd.Next());
             AddNeuron(MotorNeuron, 3);
         }
@@ -103,10 +116,10 @@ namespace NeuroWorms.Core.Neuro
             var neurons = GetRandomNeuronsWithSynapses(neuronsToMutate);
             foreach (var neuron in neurons)
             {
-                if (NeuroRnd.NextDouble() < 0.5)
+                if (NeuroRnd.NextDouble() < 0.4)
                     MutateBias(neuron);
 
-                if (NeuroRnd.NextDouble() < 0.7)
+                if (NeuroRnd.NextDouble() < 0.6)
                     MutateSynapses(neuron);
             }
         }

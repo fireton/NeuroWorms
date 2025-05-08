@@ -1,5 +1,4 @@
-﻿//#define NEEDDEBUGWORM
-using NeuroWorms.Core.Helpers;
+﻿using NeuroWorms.Core.Helpers;
 using NeuroWorms.Core.Neuro;
 using System;
 using System.Linq;
@@ -20,11 +19,9 @@ namespace NeuroWorms.Core
         public int AliveWormsCount => Worms?.Count(w => w.IsAlive) ?? 0;
 
         private readonly Random random = new Random();
-        #if NEEDDEBUGWORM
-        private Worm debugWorm;
-        #endif
 
         private int foodTicks = 0;
+        private readonly bool debug = false;
 
         public SimulationEngine()
         {
@@ -61,41 +58,23 @@ namespace NeuroWorms.Core
                         break;
                     case CellType.WormBody:
                     case CellType.WormHead:
+                        KillWorm(worm, DeathReason.WormBody);
+                        break;
                     case CellType.Wall:
-                        worm.Die();
-#if NEEDDEBUGWORM
-                        if (worm == debugWorm)
-                        {
-                            Debug.WriteLine($"Debug worm died of {nexCellType}");
-                        }
-#endif
-                        worm.RemoveFromField(Field);
+                        KillWorm(worm, DeathReason.Wall);
                         break;
                     default:
                         throw new InvalidOperationException("Unknown cell type");
                 }
                 if (worm.IsAlive && worm.Hunger > Constants.MaxHunger)
                 {
-                    worm.Die();
-#if NEEDDEBUGWORM
-                    if (worm == debugWorm)
-                    {
-                        Debug.WriteLine($"Debug worm died of hunger");
-                    }
-#endif
-                    worm.RemoveFromField(Field);
+                    KillWorm(worm, DeathReason.Hunger);
                 }
                 LongestWorm = Math.Max(LongestWorm, worm.Body.Count + 1);
             }
             
             CurrentTick++;
             LongestAge = Math.Max(LongestAge, Worms.Max(w => w.Age));
-#if NEEDDEBUGWORM
-            if (debugWorm != null && debugWorm.IsAlive)
-            {
-                debugWorm.PrintDebug();
-            }
-#endif
             foodTicks++;
             if (foodTicks > Constants.FoodGenerationTicks)
             {
@@ -104,6 +83,19 @@ namespace NeuroWorms.Core
             }
 
             return Task.CompletedTask;
+
+            void KillWorm(Worm worm, DeathReason reason)
+            {
+                worm.Die(reason);
+                if (debug)
+                {
+                    Debug.WriteLine($"Debug worm died of {reason}");
+                    worm.PrintDebug();
+                    Debug.WriteLine($" --- ");
+                }
+                worm.RemoveFromField(Field);
+            }
+
         }
 
         public async Task RunTillNextGeneration()
@@ -120,14 +112,16 @@ namespace NeuroWorms.Core
             Field.Clear();
             var newWorms = new List<Worm>();
             var parents = Worms
-                .OrderByDescending(w => w.Body.Count + 1)
-                .ThenByDescending(w => w.Age)
+                //.Where(w => w.DeathReason != DeathReason.Wall)
+                //.OrderByDescending(w => w.Body.Count + 1)
+                .OrderByDescending(w => w.Age)
+                .ThenBy(w => w.DeathReason)
                 .Take(Constants.NumberOfParents)
                 .ToList();
 
             foreach (var parent in parents)
             {
-                for (var i = 0; i < Constants.ChildrenPerGeneration; i++)
+                for (var i = 0; i < Constants.ChildrenPerParent; i++)
                 {
                     var brain = parent.Brain.Clone();
 
@@ -140,14 +134,20 @@ namespace NeuroWorms.Core
                     newWorms.Add(worm);
                 }
             }
+
+            Constants.NewBloodPerGeneration.Times(() =>
+            {
+                var brain = new WormNeuroBrain();
+                brain.Init();
+                var worm = CreateWormOnField(brain);
+                newWorms.Add(worm);
+            });
+
             Worms = newWorms;
             InitFood();
             CurrentTick = 0;
             foodTicks = 0;
             CurrentGeneration++;
-#if NEEDDEBUGWORM
-            debugWorm = Worms.First();
-#endif
         }
 
         private void InitFood()
@@ -175,9 +175,6 @@ namespace NeuroWorms.Core
                 var worm = CreateWormOnField(brain);
                 Worms.Add(worm);
             });
-#if NEEDDEBUGWORM
-            debugWorm = Worms.First();
-#endif
         }
 
         private Worm CreateWormOnField(WormBrain brain)

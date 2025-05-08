@@ -1,59 +1,36 @@
-﻿using System;
+﻿using System.Collections.Generic;
 using System.Diagnostics;
 using NeuroWorms.Core.Helpers;
 
 namespace NeuroWorms.Core.Neuro
 {
-    // This class solves the problem of finding nearest non-empty cell in the direction of the worm's head.
+    // This class solves the problem of finding nearest non-empty cells in the direction of the worm's head.
     // It uses given field of view angle and maximum distance.
-    // It is used in the EyeSensor class.
-    internal class EyeSight
+    // It is used in the EyeSensors class.
+    internal class EyeSight(double viewAngle, double viewDistance)
     {
-        public double ViewAngle { get; protected set; }
-        public double ViewDistance { get; }
-
-        public double NearestDistance { get; private set; } // relative to ViewDistance, mapped to [-1,1]
-        public double NearestAngle { get; private set; } // relative to look direction, mapped to [-1,1]
-        public ObjectType NearestType { get; private set; }
-
-        // object type mapped to [-1,1]
-        public double NearestTypeValue => NearestType switch
-        {
-            ObjectType.Nothing => -1.0,
-            ObjectType.OtherWorm => 0.7,
-            ObjectType.SelfWorm => 0.7,
-            ObjectType.Food => 0,
-            ObjectType.Wall => 1.0,
-            _ => -1
-        };
+        public Dictionary<ObjectType, FoundInfo> Found { get; private set; } = [];
 
         private bool isCalculated = false;
 
-        public EyeSight(double viewAngle, double viewDistance)
-        {
-            ViewAngle = viewAngle;
-            ViewDistance = viewDistance;
-        }
-
-        public void DetectNearestObject(Worm worm, Field field)
+        public void DetectObjects(Worm worm, Field field)
         {
             if (isCalculated) return;
             isCalculated = true;
 
             var lookDirection = worm.CurrentDirection;
-            var startAngle = MathHelper.NormalizeAngle(MathHelper.ToRadians(lookDirection.Angle() - ViewAngle / 2));
-            var endAngle = MathHelper.NormalizeAngle(MathHelper.ToRadians(lookDirection.Angle() + ViewAngle / 2));
+            var lookDirectionAngle = lookDirection.AngleRad();
+            var startAngle = MathHelper.NormalizeAngle(MathHelper.ToRadians(lookDirection.Angle() - viewAngle / 2));
+            var endAngle = MathHelper.NormalizeAngle(MathHelper.ToRadians(lookDirection.Angle() + viewAngle / 2));
 
-            for (int curDistance = 1; curDistance <= ViewDistance; curDistance++)
+            Found.Clear();
+
+            bool AllFound() => Found.ContainsKey(ObjectType.Food) && Found.ContainsKey(ObjectType.Worm) && Found.ContainsKey(ObjectType.Wall);
+
+            for (int curDistance = 1; curDistance <= viewDistance && !AllFound(); curDistance++)
             {
                 var forwardPos = worm.Head.Move(lookDirection, curDistance);
-                if (field[forwardPos] != CellType.Empty)
-                {
-                    NearestDistance = curDistance / ViewDistance * 2 - 1;
-                    NearestAngle = 0.0;
-                    NearestType = GetObjectType(field[forwardPos], worm, forwardPos);
-                    return;
-                }
+                CheckPosition(forwardPos, lookDirectionAngle, curDistance);
 
                 var scanSideDistance = 1;
                 var scanLeftDir = lookDirection.TurnLeft();
@@ -61,46 +38,47 @@ namespace NeuroWorms.Core.Neuro
 
                 while (true)
                 {
-                    // LEFT
                     var leftPos = forwardPos.Move(scanLeftDir, scanSideDistance);
-                    (var leftAngle, var leftDist) = MathHelper.AngleAndDistance(worm.Head, leftPos);
-                    if (leftDist <= ViewDistance && MathHelper.IsAngleBetween(leftAngle, startAngle, endAngle))
-                    {
-                        if (field[leftPos] != CellType.Empty)
-                        {
-                            NearestDistance = leftDist / ViewDistance * 2 - 1;
-                            NearestAngle = MathHelper.MapAngle(leftAngle, startAngle, endAngle);
-                            NearestType = GetObjectType(field[leftPos], worm, leftPos);
-                            return;
-                        }
-                    }
-                    else break;
+                    var (leftAngle, leftDist) = MathHelper.AngleAndDistance(worm.Head, leftPos);
 
-                    // RIGHT
                     var rightPos = forwardPos.Move(scanRightDir, scanSideDistance);
-                    (var rightAngle, var rightDist) = MathHelper.AngleAndDistance(worm.Head, rightPos);
-                    if (rightDist <= ViewDistance && MathHelper.IsAngleBetween(rightAngle, startAngle, endAngle))
-                    {
-                        if (field[rightPos] != CellType.Empty)
-                        {
-                            NearestDistance = rightDist / ViewDistance * 2 - 1;
-                            NearestAngle = MathHelper.MapAngle(rightAngle, startAngle, endAngle);
-                            NearestType = GetObjectType(field[rightPos], worm, rightPos);
-                            return;
-                        }
-                    }
-                    else break;
+                    var (rightAngle, rightDist) = MathHelper.AngleAndDistance(worm.Head, rightPos);
+
+                    if (leftDist > viewDistance && rightDist > viewDistance)
+                        break;
+
+                    CheckPosition(rightPos, rightAngle, rightDist);
+                    CheckPosition(leftPos, leftAngle, leftDist);
+
+                    if (AllFound()) break;
 
                     scanSideDistance++;
                 }
             }
 
-            // Ничего не найдено
-            NearestDistance = -1; // дальняя точка зрения
-            NearestAngle = 0;
-            NearestType = ObjectType.Nothing;
-        }
+            void CheckPosition(Position pos, double angle, double dist)
+            {
 
+                var type = field[pos];
+                if (type == CellType.Empty) return;
+
+                if (AllFound()) return;
+
+                if (!MathHelper.IsAngleBetween(angle, startAngle, endAngle)) return;
+
+                if (type == CellType.Food && !Found.ContainsKey(ObjectType.Food))
+                    Found[ObjectType.Food] = CreateFoundInfo(angle, dist);
+                else if (type == CellType.Wall && !Found.ContainsKey(ObjectType.Wall))
+                    Found[ObjectType.Wall] = CreateFoundInfo(angle, dist);
+                else if ((type == CellType.WormHead || type == CellType.WormBody) && !Found.ContainsKey(ObjectType.Worm))
+                    Found[ObjectType.Worm] = CreateFoundInfo(angle, dist);
+            }
+
+            FoundInfo CreateFoundInfo(double angle, double dist)
+            {
+                return new FoundInfo(dist / viewDistance * 2 - 1, MathHelper.MapAngle(angle, startAngle, endAngle));
+            }
+        }
 
         public void Reset()
         {
@@ -109,41 +87,24 @@ namespace NeuroWorms.Core.Neuro
 
         public EyeSight Clone()
         {
-            return new EyeSight(ViewAngle, ViewDistance);
-        }
-
-        private ObjectType GetObjectType(CellType cellType, Worm worm, Position pos)
-        {
-            return cellType switch
-            {
-                CellType.Empty => ObjectType.Nothing,
-                CellType.Food => ObjectType.Food,
-                CellType.Wall => ObjectType.Wall,
-                CellType.WormHead => ObjectType.OtherWorm,
-                CellType.WormBody => worm.Body.Contains(pos) ? ObjectType.SelfWorm : ObjectType.OtherWorm,
-                _ => ObjectType.Nothing
-            };
+            return new EyeSight(viewAngle, viewDistance);
         }
 
         internal void PrintDebug()
         {
-            if (NearestType == ObjectType.Nothing)
+            foreach (var found in Found)
             {
-                Debug.WriteLine("Nothing detected");
-            }
-            else
-            {
-                Debug.WriteLine($"Detected {NearestType} at distance {NearestDistance} and angle {NearestAngle}");
+                Debug.WriteLine($"Found {found.Key} at angle {found.Value.AngleValue} and distance {found.Value.DistanceValue}");
             }
         }
     }
 
+    public record FoundInfo(double AngleValue, double DistanceValue);
+
     public enum ObjectType
     {
-        Nothing,
-        OtherWorm,
-        SelfWorm,
         Food,
+        Worm,
         Wall
     }
 }

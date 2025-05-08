@@ -47,7 +47,7 @@ namespace NeuroWorms.Core.Helpers
             return Math.Sqrt(dx * dx + dy * dy);
         }
 
-        public static (double, double) AngleAndDistance(Position a, Position b)
+        public static (double Angle, double Distance) AngleAndDistance(Position a, Position b)
         {
             var dx = b.X - a.X;
             var dy = b.Y - a.Y;

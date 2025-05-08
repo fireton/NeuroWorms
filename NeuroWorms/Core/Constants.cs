@@ -9,11 +9,13 @@
         public const int StartFoodCount = 100;
         public const int StartWormCount = 50;
 
-        public const int NumberOfParents = 5;
+        public const int NumberOfParents = 4;
+        public const int ChildrenPerParent = 10;
+        public const int NewBloodPerGeneration = 10;
         public const int MaxGenerationTicks   = 5000;
-        public const int ChildrenPerGeneration = 10;
-        public const double ViewAngle = 120.0;
-        public const double ViewDistance = 15.0;
+        
+        public const double ViewAngle = 10.0;
+        public const double ViewDistance = 70.0;
         public const int MaxHunger = 300;
         public const int FoodGenerationTicks = 20;
 
