@@ -25,6 +25,19 @@ namespace NeuroWorms.Core.Neuro
             return clone;
         }
 
+        internal BrainGenome ExportGenome()
+        {
+            return neuralNetwork.ExportGenome();
+        }
+
+        internal static WormNeuroBrain FromGenome(BrainGenome genome)
+        {
+            var brain = new WormNeuroBrain();
+            brain.Init();
+            brain.neuralNetwork.ImportGenome(genome);
+            return brain;
+        }
+
         public override MoveDirection GetNextMove(Field field, Worm worm)
         {
             eyeSight.Reset();
@@ -69,7 +82,12 @@ namespace NeuroWorms.Core.Neuro
 
         public override void Mutate()
         {
-            neuralNetwork.Mutate();
+            neuralNetwork.Mutate(MutationSettings.Default);
+        }
+
+        internal override void Mutate(MutationSettings settings)
+        {
+            neuralNetwork.Mutate(settings);
         }
 
         public override void PrintDebug()

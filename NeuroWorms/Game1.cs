@@ -48,6 +48,11 @@ namespace NeuroWorms
 
         protected override void Update(GameTime gameTime)
         {
+            if (currentTask?.IsFaulted == true)
+            {
+                throw new InvalidOperationException("The simulation task failed.", currentTask.Exception);
+            }
+
             if (Keyboard.GetState().IsKeyDown(Keys.V))
             {
                 skipGenerations = !skipGenerations;

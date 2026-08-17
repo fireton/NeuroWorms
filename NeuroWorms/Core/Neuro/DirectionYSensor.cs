@@ -11,6 +11,7 @@ public class DirectionYSensor() : BasicNeuron(NeuroConstants.DirYNeuronId), IWor
     {
         var angle = MathHelper.ToRadians(worm.CurrentDirection.Angle());
         value = Math.Sin(angle);
+        base.Reset();
     }
 
     protected override double Activate()

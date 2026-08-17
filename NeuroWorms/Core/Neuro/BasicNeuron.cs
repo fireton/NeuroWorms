@@ -30,6 +30,7 @@ namespace NeuroWorms.Core.Neuro
             if (!isActivated)
             {
                 activatedValue = Activate();
+                isActivated = true;
             }
 
             return activatedValue;

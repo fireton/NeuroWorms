@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 
 namespace NeuroWorms.Core.Neuro
@@ -44,13 +45,18 @@ namespace NeuroWorms.Core.Neuro
 
         public void AddNeuron(BasicNeuron neuron, int layer)
         {
+            if (Neurons.Any(existingNeuron => existingNeuron.Id == neuron.Id))
+            {
+                throw new InvalidOperationException($"A neuron with ID {neuron.Id} already exists in the network.");
+            }
+
             neuron.Layer = layer;
             Neurons.Add(neuron);
         }
 
         public IBasicNeuron GetNeuron(Guid id)
         {
-            return Neurons.Find(n => n.Id == id);
+            return Neurons.Single(n => n.Id == id);
         }
 
         public IEnumerable<IBasicNeuron> GetNeuronsInLayer(int layer)
@@ -96,6 +102,8 @@ namespace NeuroWorms.Core.Neuro
             {
                 clone.AddNeuron(new Neuron(hiddenNeuron.Id, hiddenNeuron.Bias), hiddenNeuron.Layer);
             }
+
+            clone.MotorNeuron.Bias = MotorNeuron.Bias;
             
             var neuronsWithSynapsesToCopy = Neurons.FindAll(n => n is INeuronWithSynapses).ConvertAll(n => (INeuronWithSynapses)n);
             foreach (var neuronWithSynapsesToCopy in neuronsWithSynapsesToCopy)
@@ -109,35 +117,95 @@ namespace NeuroWorms.Core.Neuro
             return clone;
         }
 
-        public void Mutate()
+        public BrainGenome ExportGenome()
         {
+            var evolvingNeurons = GetEvolvingNeurons().ToList();
+            return new BrainGenome
+            {
+                Biases = evolvingNeurons.Select(neuron => neuron.Bias).ToList(),
+                Weights = evolvingNeurons
+                    .SelectMany(neuron => neuron.Synapses)
+                    .Select(synapse => synapse.Weight)
+                    .ToList(),
+            };
+        }
+
+        public void ImportGenome(BrainGenome genome)
+        {
+            ArgumentNullException.ThrowIfNull(genome);
+
+            if (genome.Biases is null || genome.Weights is null)
+            {
+                throw new InvalidDataException("The genome must contain both biases and weights.");
+            }
+
+            var evolvingNeurons = GetEvolvingNeurons().ToList();
+            var expectedWeightCount = evolvingNeurons.Sum(neuron => neuron.Synapses.Count);
+
+            if (genome.Biases.Count != evolvingNeurons.Count)
+            {
+                throw new InvalidDataException(
+                    $"The genome contains {genome.Biases.Count} biases; expected {evolvingNeurons.Count}.");
+            }
+
+            if (genome.Weights.Count != expectedWeightCount)
+            {
+                throw new InvalidDataException(
+                    $"The genome contains {genome.Weights.Count} weights; expected {expectedWeightCount}.");
+            }
+
+            if (genome.Biases.Any(value => !double.IsFinite(value)) ||
+                genome.Weights.Any(value => !double.IsFinite(value)))
+            {
+                throw new InvalidDataException("The genome contains a non-finite parameter.");
+            }
+
+            for (var neuronIndex = 0; neuronIndex < evolvingNeurons.Count; neuronIndex++)
+            {
+                evolvingNeurons[neuronIndex].Bias = genome.Biases[neuronIndex];
+            }
+
+            var weightIndex = 0;
+            foreach (var neuron in evolvingNeurons)
+            {
+                foreach (var synapse in neuron.Synapses)
+                {
+                    synapse.Weight = genome.Weights[weightIndex++];
+                }
+            }
+        }
+
+        public void Mutate(MutationSettings settings)
+        {
+            ArgumentNullException.ThrowIfNull(settings);
+
             var mutableNeurons = NeuroConstants.NeuronsInHiddenLayer1 + NeuroConstants.NeuronsInHiddenLayer2 + 1;
-            var neuronsToMutate = (int)Math.Max(1, Math.Round(mutableNeurons * NeuroConstants.PercentOfNeuronsToMutate / 100.0));
+            var neuronsToMutate = (int)Math.Max(1, Math.Round(mutableNeurons * settings.PercentOfNeurons / 100.0));
             var neurons = GetRandomNeuronsWithSynapses(neuronsToMutate);
             foreach (var neuron in neurons)
             {
                 if (NeuroRnd.NextDouble() < 0.4)
-                    MutateBias(neuron);
+                    MutateBias(neuron, settings.Strength);
 
                 if (NeuroRnd.NextDouble() < 0.6)
-                    MutateSynapses(neuron);
+                    MutateSynapses(neuron, settings.Strength);
             }
         }
 
-        private static void MutateSynapses(INeuronWithSynapses neuron)
+        private static void MutateSynapses(INeuronWithSynapses neuron, double mutationStrength)
         {
             if (neuron.Synapses.Count == 0) return;
 
             int toMutate = Math.Max(1, neuron.Synapses.Count / 3); // 33%
             foreach (var synapse in neuron.Synapses.OrderBy(_ => NeuroRnd.NextDouble()).Take(toMutate))
             {
-                synapse.Weight = NeuroRnd.GaussianJitter(synapse.Weight, NeuroConstants.MutationStrength);
+                synapse.Weight = NeuroRnd.GaussianJitter(synapse.Weight, mutationStrength);
             }
         }
 
-        private static void MutateBias(INeuronWithSynapses neuron)
+        private static void MutateBias(INeuronWithSynapses neuron, double mutationStrength)
         {
-            neuron.Bias = NeuroRnd.GaussianJitter(neuron.Bias, NeuroConstants.MutationStrength);
+            neuron.Bias = NeuroRnd.GaussianJitter(neuron.Bias, mutationStrength);
         }
 
         private IEnumerable<INeuronWithSynapses> GetRandomNeuronsWithSynapses(int count)
@@ -151,6 +219,14 @@ namespace NeuroWorms.Core.Neuro
 
             // select number of unique random neurons
             return neuronsWithSynapses.OrderBy(_ => NeuroRnd.NextDouble()).Take(count);
+        }
+
+        private IEnumerable<INeuronWithSynapses> GetEvolvingNeurons()
+        {
+            return Neurons
+                .Where(neuron => neuron is INeuronWithSynapses)
+                .OrderBy(neuron => neuron.Layer)
+                .Cast<INeuronWithSynapses>();
         }
     }
 }

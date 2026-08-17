@@ -1,8 +1,10 @@
 ﻿using NeuroWorms.Core.Helpers;
+using NeuroWorms.Core.Evolution;
 using NeuroWorms.Core.Neuro;
 using System;
 using System.Linq;
 using System.Collections.Generic;
+using System.IO;
 using System.Threading.Tasks;
 using System.Diagnostics;
 
@@ -17,17 +19,76 @@ namespace NeuroWorms.Core
         public int LongestWorm { get; private set; } = 0;
         public int LongestAge { get; private set; } = 0;
         public int AliveWormsCount => Worms?.Count(w => w.IsAlive) ?? 0;
+        public GenerationResult LastGenerationResult { get; private set; }
 
         private readonly Random random = new Random();
+        private readonly CheckpointStore checkpointStore;
+        private readonly GenerationMutator generationMutator;
 
         private int foodTicks = 0;
         private readonly bool debug = false;
 
-        public SimulationEngine()
+        public static string DefaultSaveFilePath => CheckpointStore.DefaultFilePath;
+        public string SaveFilePath => checkpointStore?.FilePath;
+
+        public SimulationEngine() : this(
+            CheckpointStore.DefaultFilePath,
+            new MixedCloneAndMutate(),
+            loadCheckpoint: true)
         {
+        }
+
+        public SimulationEngine(string saveFilePath) : this(
+            saveFilePath,
+            new MixedCloneAndMutate(),
+            loadCheckpoint: true)
+        {
+        }
+
+        public SimulationEngine(string saveFilePath, bool loadCheckpoint) : this(
+            saveFilePath,
+            new MixedCloneAndMutate(),
+            loadCheckpoint)
+        {
+        }
+
+        internal SimulationEngine(string saveFilePath, GenerationMutator generationMutator) : this(
+            saveFilePath,
+            generationMutator,
+            loadCheckpoint: true)
+        {
+        }
+
+        internal SimulationEngine(
+            string saveFilePath,
+            GenerationMutator generationMutator,
+            bool loadCheckpoint)
+        {
+            this.generationMutator = generationMutator
+                ?? throw new ArgumentNullException(nameof(generationMutator));
+            checkpointStore = saveFilePath is null ? null : new CheckpointStore(saveFilePath);
             Field = new Field(Constants.FieldWidth, Constants.FieldHeight);
             Worms = [];
-            InitWorms();
+
+            if (loadCheckpoint && checkpointStore?.Exists == true)
+            {
+                try
+                {
+                    RestoreCheckpoint(checkpointStore.Load());
+                }
+                catch (InvalidDataException exception)
+                {
+                    throw new InvalidDataException(
+                        $"Cannot restore checkpoint '{checkpointStore.FilePath}': {exception.Message}",
+                        exception);
+                }
+            }
+            else
+            {
+                InitWorms();
+                SaveCheckpoint();
+            }
+
             InitFood();
         }
 
@@ -35,9 +96,10 @@ namespace NeuroWorms.Core
         {
             var aliveWorms = Worms.FindAll(w => w.IsAlive);
 
-            if (aliveWorms.Count == 0 || CurrentTick > Constants.MaxGenerationTicks)
+            if (aliveWorms.Count == 0 || CurrentTick >= Constants.MaxGenerationTicks)
             {
                 NextGeneration();
+                return Task.CompletedTask;
             }
 
             foreach (var worm in aliveWorms)
@@ -98,56 +160,75 @@ namespace NeuroWorms.Core
 
         }
 
-        public async Task RunTillNextGeneration()
+        public void RunTillNextGeneration()
         {
             var currentGeneration = CurrentGeneration;
             while (CurrentGeneration == currentGeneration)
             {
-                await NextMove();
+                NextMove();
             }
         }
 
         private void NextGeneration()
         {
-            Field.Clear();
-            var newWorms = new List<Worm>();
-            var parents = Worms
-                //.Where(w => w.DeathReason != DeathReason.Wall)
-                //.OrderByDescending(w => w.Body.Count + 1)
-                .OrderByDescending(w => w.Age)
+            LastGenerationResult = new GenerationResult(
+                CurrentGeneration,
+                CurrentTick,
+                Worms.Max(worm => worm.Age),
+                Worms.Average(worm => worm.Age),
+                Worms.Max(worm => worm.FoodEaten),
+                Worms.Average(worm => worm.FoodEaten),
+                Worms.Count(worm => worm.DeathReason == DeathReason.Hunger),
+                Worms.Count(worm => worm.DeathReason == DeathReason.Wall),
+                Worms.Count(worm => worm.DeathReason == DeathReason.WormBody),
+                Worms.Count(worm => worm.IsAlive));
+
+            var rankedPopulation = Worms
+                .OrderByDescending(w => w.Body.Count + 1)
+                .ThenByDescending(w => w.Age)
                 .ThenBy(w => w.DeathReason)
-                .Take(Constants.NumberOfParents)
                 .ToList();
+            var newBrains = generationMutator.CreateNextGeneration(rankedPopulation);
 
-            foreach (var parent in parents)
+            Field.Clear();
+            var newWorms = new List<Worm>(newBrains.Count);
+            foreach (var brain in newBrains)
             {
-                for (var i = 0; i < Constants.ChildrenPerParent; i++)
-                {
-                    var brain = parent.Brain.Clone();
-
-                    if (NeuroRnd.NextDouble() < Constants.MutationChance)
-                    {
-                       brain.Mutate();
-                    }
-
-                    var worm = CreateWormOnField(brain);
-                    newWorms.Add(worm);
-                }
-            }
-
-            Constants.NewBloodPerGeneration.Times(() =>
-            {
-                var brain = new WormNeuroBrain();
-                brain.Init();
                 var worm = CreateWormOnField(brain);
                 newWorms.Add(worm);
-            });
+            }
 
             Worms = newWorms;
             InitFood();
             CurrentTick = 0;
             foodTicks = 0;
             CurrentGeneration++;
+            SaveCheckpoint();
+        }
+
+        private void RestoreCheckpoint(SimulationCheckpoint checkpoint)
+        {
+            CurrentGeneration = checkpoint.Generation;
+            foreach (var genome in checkpoint.Population)
+            {
+                if (genome is null)
+                {
+                    throw new InvalidDataException("Checkpoint population contains an empty genome.");
+                }
+
+                var brain = WormNeuroBrain.FromGenome(genome);
+                Worms.Add(CreateWormOnField(brain));
+            }
+        }
+
+        private void SaveCheckpoint()
+        {
+            if (checkpointStore is null)
+            {
+                return;
+            }
+
+            checkpointStore.Save(CheckpointStore.Create(CurrentGeneration, Worms));
         }
 
         private void InitFood()

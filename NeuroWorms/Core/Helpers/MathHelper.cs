@@ -35,7 +35,9 @@ namespace NeuroWorms.Core.Helpers
         public static double AngleBetween(Position a, Position b)
         {
             var dx = b.X - a.X;
-            var dy = b.Y - a.Y;
+            // Field coordinates grow downwards, while direction angles use the
+            // conventional coordinate system where positive Y points upwards.
+            var dy = a.Y - b.Y;
             var angle = Math.Atan2(dy, dx);
             return NormalizeAngle(angle);
         }
@@ -50,7 +52,7 @@ namespace NeuroWorms.Core.Helpers
         public static (double Angle, double Distance) AngleAndDistance(Position a, Position b)
         {
             var dx = b.X - a.X;
-            var dy = b.Y - a.Y;
+            var dy = a.Y - b.Y;
             var angle = Math.Atan2(dy, dx);
             return (NormalizeAngle(angle), Math.Sqrt(dx * dx + dy * dy));
         }

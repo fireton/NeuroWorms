@@ -1,82 +1,83 @@
-﻿using System.Collections.Generic;
+using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Diagnostics;
-using NeuroWorms.Core.Helpers;
+using System.Linq;
 
 namespace NeuroWorms.Core.Neuro
 {
-    // This class solves the problem of finding nearest non-empty cells in the direction of the worm's head.
-    // It uses given field of view angle and maximum distance.
-    // It is used in the EyeSensors class.
-    internal class EyeSight(double viewAngle, double viewDistance)
+    // Finds the nearest object of each type inside the worm's field of view.
+    // Integer cell offsets are precomputed and ordered in distance shells so
+    // every cell in the sector is visited from nearest to farthest.
+    internal class EyeSight
     {
+        private const int ObjectTypeCount = 3;
+        private static readonly ConcurrentDictionary<ScanPattern, ScanOffset[]> ScanPatterns = new();
+
+        private readonly double viewAngle;
+        private readonly double viewDistance;
+        private readonly ScanOffset[] scanOffsets;
+
+        public EyeSight(double viewAngle, double viewDistance)
+        {
+            if (!double.IsFinite(viewAngle) || viewAngle <= 0.0 || viewAngle > 360.0)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(viewAngle),
+                    "View angle must be greater than 0 and at most 360 degrees.");
+            }
+
+            if (!double.IsFinite(viewDistance) || viewDistance <= 0.0)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(viewDistance),
+                    "View distance must be greater than 0.");
+            }
+
+            this.viewAngle = viewAngle;
+            this.viewDistance = viewDistance;
+            scanOffsets = ScanPatterns.GetOrAdd(
+                new ScanPattern(viewAngle, viewDistance),
+                static pattern => CreateScanOffsets(pattern.ViewAngle, pattern.ViewDistance));
+        }
+
         public Dictionary<ObjectType, FoundInfo> Found { get; private set; } = [];
 
-        private bool isCalculated = false;
+        private bool isCalculated;
 
         public void DetectObjects(Worm worm, Field field)
         {
-            if (isCalculated) return;
+            if (isCalculated)
+            {
+                return;
+            }
+
             isCalculated = true;
-
-            var lookDirection = worm.CurrentDirection;
-            var lookDirectionAngle = lookDirection.AngleRad();
-            var startAngle = MathHelper.NormalizeAngle(MathHelper.ToRadians(lookDirection.Angle() - viewAngle / 2));
-            var endAngle = MathHelper.NormalizeAngle(MathHelper.ToRadians(lookDirection.Angle() + viewAngle / 2));
-
             Found.Clear();
 
-            bool AllFound() => Found.ContainsKey(ObjectType.Food) && Found.ContainsKey(ObjectType.Worm) && Found.ContainsKey(ObjectType.Wall);
-
-            for (int curDistance = 1; curDistance <= viewDistance && !AllFound(); curDistance++)
+            foreach (var offset in scanOffsets)
             {
-                var forwardPos = worm.Head.Move(lookDirection, curDistance);
-                CheckPosition(forwardPos, lookDirectionAngle, curDistance);
-
-                var scanSideDistance = 1;
-                var scanLeftDir = lookDirection.TurnLeft();
-                var scanRightDir = lookDirection.TurnRight();
-
-                while (true)
-                {
-                    var leftPos = forwardPos.Move(scanLeftDir, scanSideDistance);
-                    var (leftAngle, leftDist) = MathHelper.AngleAndDistance(worm.Head, leftPos);
-
-                    var rightPos = forwardPos.Move(scanRightDir, scanSideDistance);
-                    var (rightAngle, rightDist) = MathHelper.AngleAndDistance(worm.Head, rightPos);
-
-                    if (leftDist > viewDistance && rightDist > viewDistance)
-                        break;
-
-                    CheckPosition(rightPos, rightAngle, rightDist);
-                    CheckPosition(leftPos, leftAngle, leftDist);
-
-                    if (AllFound()) break;
-
-                    scanSideDistance++;
-                }
-            }
-
-            void CheckPosition(Position pos, double angle, double dist)
-            {
-
-                var type = field[pos];
-                if (type == CellType.Empty) return;
-
-                if (AllFound()) return;
-
-                if (!MathHelper.IsAngleBetween(angle, startAngle, endAngle)) return;
+                var position = ApplyOffset(worm.Head, worm.CurrentDirection, offset);
+                var type = field[position];
 
                 if (type == CellType.Food && !Found.ContainsKey(ObjectType.Food))
-                    Found[ObjectType.Food] = CreateFoundInfo(angle, dist);
+                {
+                    Found[ObjectType.Food] = offset.FoundInfo;
+                }
                 else if (type == CellType.Wall && !Found.ContainsKey(ObjectType.Wall))
-                    Found[ObjectType.Wall] = CreateFoundInfo(angle, dist);
-                else if ((type == CellType.WormHead || type == CellType.WormBody) && !Found.ContainsKey(ObjectType.Worm))
-                    Found[ObjectType.Worm] = CreateFoundInfo(angle, dist);
-            }
+                {
+                    Found[ObjectType.Wall] = offset.FoundInfo;
+                }
+                else if ((type == CellType.WormHead || type == CellType.WormBody) &&
+                         !Found.ContainsKey(ObjectType.Worm))
+                {
+                    Found[ObjectType.Worm] = offset.FoundInfo;
+                }
 
-            FoundInfo CreateFoundInfo(double angle, double dist)
-            {
-                return new FoundInfo(dist / viewDistance * 2 - 1, MathHelper.MapAngle(angle, startAngle, endAngle));
+                if (Found.Count == ObjectTypeCount)
+                {
+                    break;
+                }
             }
         }
 
@@ -90,13 +91,90 @@ namespace NeuroWorms.Core.Neuro
             return new EyeSight(viewAngle, viewDistance);
         }
 
+        internal IEnumerable<(int Forward, int Left)> ScanCellOffsets =>
+            scanOffsets.Select(offset => (offset.Forward, offset.Left));
+
         internal void PrintDebug()
         {
             foreach (var found in Found)
             {
-                Debug.WriteLine($"Found {found.Key} at angle {found.Value.AngleValue} and distance {found.Value.DistanceValue}");
+                Debug.WriteLine(
+                    $"Found {found.Key} at angle {found.Value.AngleValue} and distance {found.Value.DistanceValue}");
             }
         }
+
+        private static ScanOffset[] CreateScanOffsets(double viewAngle, double viewDistance)
+        {
+            var radius = (int)Math.Ceiling(viewDistance);
+            var maxDistanceSquared = viewDistance * viewDistance;
+            var halfViewAngleRadians = viewAngle * Math.PI / 360.0;
+            const double angleTolerance = 1e-12;
+            var offsets = new List<ScanOffset>();
+
+            for (var forward = -radius; forward <= radius; forward++)
+            {
+                for (var left = -radius; left <= radius; left++)
+                {
+                    var distanceSquared = forward * forward + left * left;
+                    if (distanceSquared == 0 || distanceSquared > maxDistanceSquared)
+                    {
+                        continue;
+                    }
+
+                    var relativeAngle = Math.Atan2(left, forward);
+                    if (Math.Abs(relativeAngle) > halfViewAngleRadians + angleTolerance)
+                    {
+                        continue;
+                    }
+
+                    var distance = Math.Sqrt(distanceSquared);
+                    offsets.Add(new ScanOffset(
+                        forward,
+                        left,
+                        distanceSquared,
+                        new FoundInfo(
+                            relativeAngle / halfViewAngleRadians,
+                            distance / viewDistance * 2.0 - 1.0)));
+                }
+            }
+
+            return offsets
+                .OrderBy(offset => offset.DistanceSquared)
+                .ThenBy(offset => Math.Abs(offset.FoundInfo.AngleValue))
+                .ThenBy(offset => offset.FoundInfo.AngleValue)
+                .ToArray();
+        }
+
+        private static Position ApplyOffset(
+            Position head,
+            MoveDirection direction,
+            ScanOffset offset)
+        {
+            return direction switch
+            {
+                MoveDirection.Right => new Position(
+                    head.X + offset.Forward,
+                    head.Y - offset.Left),
+                MoveDirection.Up => new Position(
+                    head.X - offset.Left,
+                    head.Y - offset.Forward),
+                MoveDirection.Left => new Position(
+                    head.X - offset.Forward,
+                    head.Y + offset.Left),
+                MoveDirection.Down => new Position(
+                    head.X + offset.Left,
+                    head.Y + offset.Forward),
+                _ => throw new ArgumentOutOfRangeException(nameof(direction), direction, null),
+            };
+        }
+
+        private readonly record struct ScanPattern(double ViewAngle, double ViewDistance);
+
+        private readonly record struct ScanOffset(
+            int Forward,
+            int Left,
+            int DistanceSquared,
+            FoundInfo FoundInfo);
     }
 
     public record FoundInfo(double AngleValue, double DistanceValue);

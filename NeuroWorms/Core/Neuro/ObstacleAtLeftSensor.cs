@@ -22,6 +22,7 @@ namespace NeuroWorms.Core.Neuro
             {
                 value = 0.0;
             }
+            base.Reset();
         }
 
         protected override double Activate()

@@ -5,6 +5,10 @@
         public abstract void Init();
         public abstract WormBrain Clone();
         public abstract void Mutate();
+        internal virtual void Mutate(Neuro.MutationSettings settings)
+        {
+            Mutate();
+        }
         public abstract MoveDirection GetNextMove(Field field, Worm worm);
         public virtual void PrintDebug() 
         {

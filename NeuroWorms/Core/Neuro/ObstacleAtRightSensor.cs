@@ -8,7 +8,7 @@ namespace NeuroWorms.Core.Neuro
 
         public void Reset(Worm worm, Field field)
         {
-            var positionAtRight = worm.Head.Move(worm.CurrentDirection.TurnLeft());
+            var positionAtRight = worm.Head.Move(worm.CurrentDirection.TurnRight());
             var cellTypeAtRight = field[positionAtRight];
             if (cellTypeAtRight == CellType.Wall || cellTypeAtRight == CellType.WormBody || cellTypeAtRight == CellType.WormHead)
             {
@@ -22,6 +22,7 @@ namespace NeuroWorms.Core.Neuro
             {
                 value = 0.0;
             }
+            base.Reset();
         }
 
         protected override double Activate()

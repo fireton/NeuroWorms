@@ -15,6 +15,7 @@ public class Worm(Position head, List<Position> body, WormBrain brain)
     public WormBrain Brain { get; } = brain;
     public int Age { get; set; } = 0;
     public int Hunger { get; set; } = 0;
+    public int FoodEaten { get; private set; } = 0;
 
     public readonly Guid Id = Guid.NewGuid();
 
@@ -59,6 +60,7 @@ public class Worm(Position head, List<Position> body, WormBrain brain)
     {
         growCount += nutrition;
         Hunger = 0;
+        FoodEaten++;
     }
 
     public void RenderToField(Field field)

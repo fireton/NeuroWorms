@@ -10,6 +10,7 @@ public class DirectionXSensor() : BasicNeuron(NeuroConstants.DirXNeuronId), IWor
     public void Reset(Worm worm)
     {
         value = Math.Cos(worm.CurrentDirection.AngleRad());
+        base.Reset();
     }
 
     protected override double Activate()
