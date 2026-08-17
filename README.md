@@ -1,100 +1,157 @@
 # NeuroWorms
 
-NeuroWorms is an artificial-life experiment written in C# and MonoGame. A population of snake-like worms is controlled by small feed-forward neural networks. Each generation runs inside a shared grid world, the best worms reproduce with mutation, and their genomes are saved so training can continue in either the graphical application or a fast headless trainer.
+NeuroWorms is an artificial-life experiment written in C# and MonoGame. Fifty snake-like worms live in one grid world and choose relative movements through small feed-forward neural networks. At the end of every generation, the best brains reproduce through cloning and mutation, and the resulting population is saved to JSON.
 
-The project is deliberately simple: there is no gradient descent, backpropagation, crossover, or scripted food-seeking behavior. Useful behavior must emerge through selection and mutation.
+There is no gradient descent, backpropagation, crossover, scripted food-seeking, or topology evolution in the current implementation. Behaviour emerges from selection and mutation of neural-network weights and biases. Planned experiments, including parallel islands, evolving graph topologies, clustered food, and tournament selection, are documented in [TODO.md](TODO.md).
 
-## Current simulation
+## Projects
 
-- Field: `180 × 180` cells.
-- Population: 50 worms.
-- Initial food: 100 cells, with additional food generated during a generation.
-- Hunger limit: 300 successful moves without food.
-- Generation limit: 5000 ticks, or earlier when every worm has died.
-- Food resets hunger, increases `FoodEaten`, and grows the body by one segment.
-- A worm dies from hunger, a wall collision, or a collision with its own or another worm's body.
+The solution contains three projects:
 
-All worms currently share one field and take their turns sequentially. Ideas for parallel and simultaneous simulation are tracked in [TODO.md](TODO.md).
+- `NeuroWorms` — the MonoGame graphical application;
+- `NeuroWorms.Trainer` — a headless console trainer that runs generations as quickly as possible;
+- `NeuroWorms.Tests` — xUnit regression tests.
 
-## Brain and sensors
+The graphical application and trainer use the same simulation engine, evolution strategy, and default checkpoint.
 
-The current dense network has this shape:
+## Simulation rules
+
+| Setting | Current value |
+|---|---:|
+| Field | `180 × 180` cells |
+| Population | 50 worms |
+| Initial worm size | 1 head + 3 body cells |
+| Initial food | 100 cells |
+| Hunger threshold | 300 ticks without food |
+| Generation limit | 5000 ticks |
+| Fatal collision streak | 3 consecutive collisions |
+| Radar field of view | 180° |
+| Radar range | 70 cells |
+
+All worms share one field. At the beginning of a tick, the engine takes the current list of living worms and processes them sequentially. Each brain chooses one of three relative actions: turn left, continue straight, or turn right.
+
+The requested cell is then handled as follows:
+
+- empty cell — the worm moves normally;
+- food — the worm eats, grows by one cell, and moves;
+- wall or any worm head/body — the worm remains in place and registers a collision.
+
+A collision still advances age and hunger. The first two consecutive collisions are recoverable, giving the brain another decision on the next tick. The third consecutive collision kills the worm with either `Wall` or `WormBody` as the death reason. Any successful movement, including movement onto food, resets the consecutive-collision streak. The total number of collisions remains recorded for statistics and fitness.
+
+Hunger increases on both movement and collision ticks. Eating resets it before the eating movement is completed. A worm dies when its hunger becomes greater than 300. A dead worm is removed from the field immediately; its body currently becomes empty cells, not food.
+
+A generation ends when every worm is dead or after 5000 ticks. User-facing generation numbers start at 1.
+
+### Food lifecycle
+
+Food is currently distributed uniformly among empty cells:
+
+1. Every new generation starts with exactly 100 food cells.
+2. When a food cell is eaten, one replacement food cell is created immediately at another random empty position.
+3. The simulation additionally creates one food cell whenever the periodic counter exceeds 20 — with the current condition, this means every 21 ticks.
+4. Food does not expire or move.
+5. At the next generation boundary the field is cleared and reset to 100 food cells.
+
+Consequently, eating does not reduce the amount of food on the field, while the periodic source gradually increases it during a long generation. Clustered spawning and recycling dead worms into food are ideas only; they are not implemented yet.
+
+## Neural network
+
+Every worm currently uses the same fixed dense topology:
 
 ```text
-15 sensors → 25 hidden neurons → 10 hidden neurons → 1 motor neuron
+15 sensors → 12 hidden neurons → 6 hidden neurons → 1 motor neuron
 ```
 
-Hidden and motor neurons use `tanh`. The motor output maps to one of three relative actions:
+This produces 19 trainable biases and 258 trainable weights. Hidden and motor neurons use `tanh`. New weights use Xavier uniform initialization for their respective layer sizes, and every bias starts at zero.
 
-- less than `-0.3333`: turn left;
-- from `-0.3333` to `0.3333`: continue straight;
-- greater than `0.3333`: turn right.
+The motor output maps to relative movement:
+
+- output below `-0.3333` — turn left;
+- output from `-0.3333` through `0.3333` — continue straight;
+- output above `0.3333` — turn right.
+
+### Sensors
 
 The 15 inputs are:
 
-- food presence, relative angle, and distance;
-- worm presence, relative angle, and distance;
-- wall presence, relative angle, and distance;
-- the contents of the immediately adjacent left and right cells;
-- body length;
-- current X and Y direction components;
-- hunger level.
+| Count | Inputs |
+|---:|---|
+| 3 | Food presence, relative angle, and distance |
+| 3 | Worm presence, relative angle, and distance |
+| 3 | Wall presence, relative angle, and distance |
+| 3 | Contents of the immediately adjacent left, ahead, and right cells |
+| 1 | Body length |
+| 1 | Hunger |
+| 1 | Consecutive-collision state |
 
-### Radar-like field of view
+Adjacent-cell sensors return `-1` for food, `0` for empty, and `+1` for a wall, worm body, or worm head.
 
-`EyeSight` currently behaves more like a radar or directional sense than occluded visual sight:
+The length sensor maps length 0–50 approximately onto `[-1; +1]`; it is not clamped above length 50. Hunger is clamped to `[-1; +1]`. The collision sensor returns `-1` with no current streak, `0` after one collision, and `+1` after two or more.
 
-- field of view: 180 degrees in front of the worm;
-- range: 70 cells;
-- one nearest result is returned for each of `Food`, `Worm`, and `Wall`;
-- angle is normalized from `-1` on the right to `+1` on the left;
+Absolute X/Y direction sensors are intentionally absent. Vision and motor actions are expressed in the worm's local frame.
+
+### Radar-like vision
+
+`EyeSight` behaves like a radar rather than occluded visual sight:
+
+- it scans the complete integer-cell half-disk in front of the worm;
+- it returns the nearest detected `Food`, `Worm`, and `Wall` independently;
+- relative angle is normalized from `-1` on the left to `+1` on the right, matching the motor convention;
 - distance is normalized from approximately `-1` nearby to `+1` at maximum range;
-- bodies and walls do not hide objects behind them.
+- walls and bodies do not hide cells behind them.
 
-The scan pattern is precomputed once and shared between brains. It contains every integer cell in the front half-disk, with no sampling gaps or duplicates, and is ordered by squared Euclidean distance. Runtime scans therefore proceed from the nearest discrete distance shells to the farthest without calculating angles or square roots for every worm movement.
+The scan offsets are precomputed and cached. Every integer cell inside the 180° sector and 70-cell radius is included without sampling holes or duplicates. Offsets are ordered by squared Euclidean distance, so runtime scans proceed from near to far without calculating angles or square roots for every worm decision.
 
-## Evolution cycle
+## Evolution
 
-Each generation follows this cycle:
+At a generation boundary, every worm receives the default weighted fitness:
 
-1. Run ticks until all worms die or the 5000-tick limit is reached.
-2. Record age, food, survivors, and death-reason statistics.
-3. Rank worms by body length, then by age when lengths are equal, then by death reason as a stable final tie-breaker.
-4. Build the next population using the configured `GenerationMutator`.
-5. Place the new worms and food on a cleared field.
-6. Increment the generation and atomically save a JSON checkpoint.
+```text
+fitness = Age + FoodEaten × 100 - TotalCollisions × 50
+```
 
-The current selection is deliberately lexicographic: one extra body segment always wins over any age difference. A weighted fitness function is being considered but is not implemented yet.
+Each food item also adds one body cell, so `FoodEaten` rewards growth directly. There is no fixed death penalty and no special reward for reaching the 5000-tick limit.
 
-### Default mutation strategy
+The population is ranked by:
 
-`MixedCloneAndMutate` is the default strategy. It selects the six highest-ranked parents and creates exactly 50 brains:
+1. fitness, descending;
+2. food eaten, descending;
+3. age, descending;
+4. death reason, as a deterministic final tie-breaker.
 
-| Offspring type | Per parent | Total | Mutation |
+### Default reproduction strategy
+
+`MixedCloneAndMutate` selects the six best parents and creates exactly 50 brains:
+
+| Offspring type | Per parent | Total | Parameters |
 |---|---:|---:|---|
-| Exact clones | 3 | 18 | none |
-| Fine-tuned clones | 3 | 18 | strength `0.075`, 15% neuron coverage |
-| Strongly mutated clones | 2 | 12 | strength `0.15`, 25% neuron coverage |
-| New random brains | — | 2 | fresh blood |
+| Exact clones | 3 | 18 | No mutation |
+| Fine-tuned clones | 3 | 18 | Strength `0.075`, 15% neuron coverage |
+| Strongly mutated clones | 2 | 12 | Strength `0.15`, 25% neuron coverage |
+| New random brains | — | 2 | Fresh blood |
 
-The resulting population is shuffled so a lineage does not receive a permanent advantage from its position in the sequential turn order.
+For each selected neuron, bias mutation is attempted with 40% probability and synapse mutation with 60% probability. A synapse mutation changes approximately one third of that neuron's incoming weights using Gaussian jitter, clamped to `[-1; +1]`.
 
-Two older named strategies remain in the code for experimentation:
+The 50 offspring are shuffled before placement so one lineage does not permanently benefit from its position in the sequential turn order.
+
+Two older strategies remain available in code for experiments but are not selected by default:
 
 - `FineTuningCloneAndMutate`;
 - `LegacyCloneAndMutate`.
 
-## Applications
+### Generation cycle
 
-The solution contains three projects:
+1. Simulate until all worms die or the tick limit is reached.
+2. Capture age, food, fitness, collision, survivor, and death-reason statistics.
+3. Rank the population and create the next 50 brains.
+4. Clear the field and place the new worms.
+5. Reset food and tick counters.
+6. Increment the completed-generation counter.
+7. Atomically save the new population to the checkpoint.
 
-- `NeuroWorms`: the MonoGame graphical application;
-- `NeuroWorms.Trainer`: a headless console trainer;
-- `NeuroWorms.Tests`: xUnit regression tests.
+## Build and run
 
-Both applications use the same simulation engine and the same default checkpoint.
-
-## Requirements
+Requirements:
 
 - .NET 8 SDK or a compatible newer SDK;
 - desktop graphics support for the MonoGame application.
@@ -106,17 +163,15 @@ dotnet restore NeuroWorms.sln
 dotnet build NeuroWorms.sln -c Release
 ```
 
-## Graphical application
-
-Run the visual simulation:
+### Graphical application
 
 ```bash
 dotnet run --project NeuroWorms/NeuroWorms.csproj -c Release
 ```
 
-If the default checkpoint exists, the application loads its population and generation number. Otherwise it creates and saves generation 0.
+The application loads the default checkpoint when it exists. Otherwise it creates and saves the initial population for generation 1. `Escape` exits the application; `V` switches between visible ticking and calculating whole generations without rendering intermediate states.
 
-## Headless trainer
+### Headless trainer
 
 Run indefinitely until `Ctrl+C`:
 
@@ -124,66 +179,53 @@ Run indefinitely until `Ctrl+C`:
 dotnet run --project NeuroWorms.Trainer/NeuroWorms.Trainer.csproj -c Release
 ```
 
-Advance 1500 generations from the loaded checkpoint:
+Advance another 1500 generations from the loaded checkpoint:
 
 ```bash
 dotnet run --project NeuroWorms.Trainer/NeuroWorms.Trainer.csproj -c Release -- --generations 1500
 ```
 
-Ignore the existing checkpoint and start a new 1500-generation experiment:
+Ignore the existing checkpoint and begin again from generation 1:
 
 ```bash
 dotnet run --project NeuroWorms.Trainer/NeuroWorms.Trainer.csproj -c Release -- --clean --generations 1500
 ```
 
-`--clean` does not explicitly delete the selected file, but generation 0 is saved normally and replaces its contents. Use `--save-file` if the previous experiment must be preserved.
+`--clean` does not delete the selected file first. It ignores its contents and immediately replaces it with a new initial population. Use a different `--save-file` to preserve an existing experiment.
 
-Available options:
+Trainer options:
 
 ```text
 -g, --generations N   Advance N more generations, then stop.
 -u, --until N         Run until absolute generation N.
 -r, --report-every N  Print progress every N generations (default: 5).
 -s, --save-file PATH  Use a custom checkpoint instead of the shared default.
-    --clean            Ignore the selected checkpoint and start at generation 0.
+    --clean            Ignore the selected checkpoint and start from generation 1.
 -h, --help             Show command help.
 ```
 
-`Ctrl+C` is handled at a generation boundary so the most recently completed generation remains saved.
+A non-negative positional argument is also accepted as the number of generations. `--generations` and `--until` cannot be used together. `Ctrl+C` is observed at a generation boundary, after the most recently completed generation has been saved.
 
-### Trainer statistics
-
-Example:
+### Trainer output
 
 ```text
-Gen   1605 | ticks 5000 | age 5000/1089.5 best/avg | food 70/16.3 best/avg | deaths H/W/B 15/20/14 (30%/40%/28%) | survivors 1 | 0.68 gen/s
+Gen    433 | ticks 5000 | best/avg: age 5000/2578.2 | food 120/49.3 | fit 16350/6818.2
+           | hits W/B 339/355 (13.9/worm) | deaths H/W/B 2/1/40 (4%/2%/80%) | alive 7 | 0.41 gen/s
 ```
 
-- `Gen`: evaluated generation. The checkpoint advances to the following generation after reproduction.
-- `ticks`: generation duration.
-- `age`: best and population-average age.
-- `food`: best and population-average amount of food eaten.
-- `H`: deaths from hunger.
-- `W`: deaths from walls.
-- `B`: deaths from a worm body or head, including both self-collisions and other worms.
-- `survivors`: worms still alive when the generation tick limit was reached.
-- `gen/s`: generation throughput since the previous report.
+- `Gen` — evaluated generation, numbered from 1;
+- `ticks` — duration of the generation;
+- `age`, `food`, `fit` — best and population-average values;
+- `hits W/B` — total wall/body collision events and average total collisions per worm, including recoverable collisions;
+- `deaths H/W/B` — deaths from hunger, walls, and worm heads/bodies, with percentages of the full population;
+- `alive` — worms still alive when the generation reached its tick limit;
+- `gen/s` — throughput since the previous report.
 
-Best age and best food are independent population maxima and may belong to different worms.
+Best age, food, and fitness are independent maxima and may belong to different worms.
 
 ## Checkpoints
 
-Checkpoints are formatted JSON and contain:
-
-- schema version;
-- generation number;
-- UTC save timestamp;
-- all 50 brain genomes;
-- 36 biases and 635 weights per current genome.
-
-They intentionally do not preserve the in-progress field, worm positions, ages, food placement, or random-number-generator state. Loading a checkpoint starts a fresh environment using the saved population.
-
-The default file is stored under the operating system's local application-data directory:
+The default checkpoint path is based on the operating system's local application-data directory:
 
 ```text
 NeuroWorms/checkpoint.json
@@ -195,7 +237,27 @@ On macOS this normally resolves to:
 ~/Library/Application Support/NeuroWorms/checkpoint.json
 ```
 
-Writes use a temporary file followed by an atomic replacement. Invalid or incompatible checkpoints fail explicitly instead of silently restarting evolution.
+Checkpoint schema version 2 stores:
+
+- the number of completed generations;
+- the UTC save timestamp;
+- all 50 brain genomes;
+- 19 biases and 258 weights per genome.
+
+It does not store the in-progress field, worm positions, ages, hunger, food placement, statistics, or random-number-generator state. Loading always starts a fresh field using the saved population.
+
+Writes use a temporary file followed by an atomic replacement. Invalid JSON, an incorrect population size, or an unsupported schema version fails explicitly instead of silently restarting evolution. Version 1 checkpoints from the previous network are intentionally incompatible; use `--clean` or a different `--save-file`.
+
+## Current limitations
+
+- Worm decisions and field updates are sequential, not simultaneous.
+- The network topology is fixed and dense; only weights and biases evolve.
+- Random-number-generator state is neither seeded from the command line nor persisted.
+- Radar vision passes through walls and worm bodies.
+- Food is uniformly distributed and grows in quantity during a generation.
+- There is no crossover, speciation, island training, or parallel simulation yet.
+
+See [TODO.md](TODO.md) for the proposed parallel execution model, topology DNA, isolated species sandboxes, and tournament experiments.
 
 ## Tests
 
@@ -205,7 +267,7 @@ Run the complete test suite:
 dotnet test NeuroWorms.sln -c Release
 ```
 
-The tests cover neural-network cloning and genome persistence, sensor refresh behavior, all four radar orientations, complete radar cell coverage, nearest-object ordering, generation boundaries, selection, mutation strategies, and checkpoint recovery.
+The suite covers neural-network topology and Xavier initialization, cloning and genome persistence, sensor refresh and direction conventions, all radar orientations, complete radar-cell coverage, nearest-object ordering, recoverable and fatal collisions, collision statistics and fitness penalties, weighted parent selection, mutation strategies, generation boundaries, and checkpoint recovery/versioning.
 
 ## License
 

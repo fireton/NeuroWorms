@@ -10,6 +10,22 @@ internal static class NeuroRnd
         return random.NextDouble() * 2 * strength - strength;
     }
 
+    public static double Xavier(int fanIn, int fanOut)
+    {
+        if (fanIn <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(fanIn));
+        }
+
+        if (fanOut <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(fanOut));
+        }
+
+        var limit = Math.Sqrt(6.0 / (fanIn + fanOut));
+        return Next(limit);
+    }
+
     public static int Next(int from, int to)
     {
         return random.Next(from, to);

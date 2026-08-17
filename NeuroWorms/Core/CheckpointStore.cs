@@ -8,7 +8,7 @@ namespace NeuroWorms.Core;
 
 internal sealed class CheckpointStore
 {
-    private const int CurrentVersion = 1;
+    private const int CurrentVersion = 2;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {

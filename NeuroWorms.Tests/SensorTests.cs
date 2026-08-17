@@ -121,24 +121,22 @@ public class SensorTests
             $"Expected {expectedSet.Count} scan cells, but found {actualSet.Count}.");
     }
 
-    [Fact]
-    public void DirectionSensorsRefreshAfterReset()
+    [Theory]
+    [InlineData(7, 3, -0.5)]
+    [InlineData(7, 7, 0.5)]
+    public void EyeSightAngleUsesSameLeftRightSignAsMotor(int foodX, int foodY, double expected)
     {
-        var worm = CreateWorm();
-        var xSensor = new DirectionXSensor();
-        var ySensor = new DirectionYSensor();
+        var field = new Field(11, 11);
+        var worm = new Worm(new Position(5, 5), [], new StupidRandomBrain())
+        {
+            CurrentDirection = MoveDirection.Right,
+        };
+        var eyeSight = new EyeSight(viewAngle: 180.0, viewDistance: 4.0);
+        field[foodX, foodY] = CellType.Food;
 
-        worm.CurrentDirection = MoveDirection.Right;
-        xSensor.Reset(worm);
-        ySensor.Reset(worm);
-        Assert.Equal(1.0, xSensor.GetValue(), 10);
-        Assert.Equal(0.0, ySensor.GetValue(), 10);
+        eyeSight.DetectObjects(worm, field);
 
-        worm.CurrentDirection = MoveDirection.Up;
-        xSensor.Reset(worm);
-        ySensor.Reset(worm);
-        Assert.Equal(0.0, xSensor.GetValue(), 10);
-        Assert.Equal(1.0, ySensor.GetValue(), 10);
+        Assert.Equal(expected, eyeSight.Found[ObjectType.Food].AngleValue, 10);
     }
 
     [Fact]
@@ -172,6 +170,44 @@ public class SensorTests
         field[1, 2] = CellType.Empty;
         sensor.Reset(worm, field);
         Assert.Equal(0.0, sensor.GetValue());
+    }
+
+    [Fact]
+    public void AheadObstacleSensorDetectsObstacleFoodAndEmptyCell()
+    {
+        var field = new Field(5, 5);
+        var worm = CreateWorm();
+        var sensor = new ObstacleAheadSensor();
+
+        field[2, 1] = CellType.WormBody;
+        sensor.Reset(worm, field);
+        Assert.Equal(1.0, sensor.GetValue());
+
+        field[2, 1] = CellType.Food;
+        sensor.Reset(worm, field);
+        Assert.Equal(-1.0, sensor.GetValue());
+
+        field[2, 1] = CellType.Empty;
+        sensor.Reset(worm, field);
+        Assert.Equal(0.0, sensor.GetValue());
+    }
+
+    [Fact]
+    public void CollisionStreakSensorReportsThreeDecisionStates()
+    {
+        var worm = CreateWorm();
+        var sensor = new CollisionStreakSensor();
+
+        sensor.Reset(worm);
+        Assert.Equal(-1.0, sensor.GetValue());
+
+        worm.RegisterCollision(DeathReason.Wall);
+        sensor.Reset(worm);
+        Assert.Equal(0.0, sensor.GetValue());
+
+        worm.RegisterCollision(DeathReason.WormBody);
+        sensor.Reset(worm);
+        Assert.Equal(1.0, sensor.GetValue());
     }
 
     private static Worm CreateWorm()

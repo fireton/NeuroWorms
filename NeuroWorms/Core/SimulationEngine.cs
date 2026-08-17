@@ -24,6 +24,7 @@ namespace NeuroWorms.Core
         private readonly Random random = new Random();
         private readonly CheckpointStore checkpointStore;
         private readonly GenerationMutator generationMutator;
+        private readonly FitnessFunction fitnessFunction;
 
         private int foodTicks = 0;
         private readonly bool debug = false;
@@ -34,6 +35,7 @@ namespace NeuroWorms.Core
         public SimulationEngine() : this(
             CheckpointStore.DefaultFilePath,
             new MixedCloneAndMutate(),
+            new WeightedAgeFoodCollisionFitness(),
             loadCheckpoint: true)
         {
         }
@@ -41,6 +43,7 @@ namespace NeuroWorms.Core
         public SimulationEngine(string saveFilePath) : this(
             saveFilePath,
             new MixedCloneAndMutate(),
+            new WeightedAgeFoodCollisionFitness(),
             loadCheckpoint: true)
         {
         }
@@ -48,6 +51,7 @@ namespace NeuroWorms.Core
         public SimulationEngine(string saveFilePath, bool loadCheckpoint) : this(
             saveFilePath,
             new MixedCloneAndMutate(),
+            new WeightedAgeFoodCollisionFitness(),
             loadCheckpoint)
         {
         }
@@ -55,6 +59,7 @@ namespace NeuroWorms.Core
         internal SimulationEngine(string saveFilePath, GenerationMutator generationMutator) : this(
             saveFilePath,
             generationMutator,
+            new WeightedAgeFoodCollisionFitness(),
             loadCheckpoint: true)
         {
         }
@@ -62,10 +67,13 @@ namespace NeuroWorms.Core
         internal SimulationEngine(
             string saveFilePath,
             GenerationMutator generationMutator,
+            FitnessFunction fitnessFunction,
             bool loadCheckpoint)
         {
             this.generationMutator = generationMutator
                 ?? throw new ArgumentNullException(nameof(generationMutator));
+            this.fitnessFunction = fitnessFunction
+                ?? throw new ArgumentNullException(nameof(fitnessFunction));
             checkpointStore = saveFilePath is null ? null : new CheckpointStore(saveFilePath);
             Field = new Field(Constants.FieldWidth, Constants.FieldHeight);
             Worms = [];
@@ -106,9 +114,9 @@ namespace NeuroWorms.Core
             {
                 var nextMove = worm.Brain.GetNextMove(Field, worm);
                 var nextHead = worm.Head.Move(nextMove);
-                var nexCellType = Field[nextHead.X, nextHead.Y];
+                var nextCellType = Field[nextHead.X, nextHead.Y];
 
-                switch (nexCellType)
+                switch (nextCellType)
                 {
                     case CellType.Empty:
                         worm.Move(nextMove, Field);
@@ -120,10 +128,10 @@ namespace NeuroWorms.Core
                         break;
                     case CellType.WormBody:
                     case CellType.WormHead:
-                        KillWorm(worm, DeathReason.WormBody);
+                        RegisterCollision(worm, DeathReason.WormBody);
                         break;
                     case CellType.Wall:
-                        KillWorm(worm, DeathReason.Wall);
+                        RegisterCollision(worm, DeathReason.Wall);
                         break;
                     default:
                         throw new InvalidOperationException("Unknown cell type");
@@ -132,7 +140,7 @@ namespace NeuroWorms.Core
                 {
                     KillWorm(worm, DeathReason.Hunger);
                 }
-                LongestWorm = Math.Max(LongestWorm, worm.Body.Count + 1);
+                LongestWorm = Math.Max(LongestWorm, worm.Length);
             }
             
             CurrentTick++;
@@ -158,6 +166,15 @@ namespace NeuroWorms.Core
                 worm.RemoveFromField(Field);
             }
 
+            void RegisterCollision(Worm worm, DeathReason reason)
+            {
+                worm.RegisterCollision(reason);
+                if (worm.ConsecutiveCollisions >= Constants.MaxConsecutiveCollisions)
+                {
+                    KillWorm(worm, reason);
+                }
+            }
+
         }
 
         public void RunTillNextGeneration()
@@ -171,22 +188,37 @@ namespace NeuroWorms.Core
 
         private void NextGeneration()
         {
+            var scoredPopulation = Worms
+                .Select(worm => new
+                {
+                    Worm = worm,
+                    Fitness = fitnessFunction.Evaluate(worm),
+                })
+                .ToList();
+
             LastGenerationResult = new GenerationResult(
-                CurrentGeneration,
+                CurrentGeneration + 1,
                 CurrentTick,
                 Worms.Max(worm => worm.Age),
                 Worms.Average(worm => worm.Age),
                 Worms.Max(worm => worm.FoodEaten),
                 Worms.Average(worm => worm.FoodEaten),
+                scoredPopulation.Max(candidate => candidate.Fitness),
+                scoredPopulation.Average(candidate => candidate.Fitness),
+                Worms.Sum(worm => worm.WallCollisions),
+                Worms.Sum(worm => worm.WormBodyCollisions),
+                Worms.Average(worm => worm.TotalCollisions),
                 Worms.Count(worm => worm.DeathReason == DeathReason.Hunger),
                 Worms.Count(worm => worm.DeathReason == DeathReason.Wall),
                 Worms.Count(worm => worm.DeathReason == DeathReason.WormBody),
                 Worms.Count(worm => worm.IsAlive));
 
-            var rankedPopulation = Worms
-                .OrderByDescending(w => w.Body.Count + 1)
-                .ThenByDescending(w => w.Age)
-                .ThenBy(w => w.DeathReason)
+            var rankedPopulation = scoredPopulation
+                .OrderByDescending(candidate => candidate.Fitness)
+                .ThenByDescending(candidate => candidate.Worm.FoodEaten)
+                .ThenByDescending(candidate => candidate.Worm.Age)
+                .ThenBy(candidate => candidate.Worm.DeathReason)
+                .Select(candidate => candidate.Worm)
                 .ToList();
             var newBrains = generationMutator.CreateNextGeneration(rankedPopulation);
 

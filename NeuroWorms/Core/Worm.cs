@@ -16,6 +16,11 @@ public class Worm(Position head, List<Position> body, WormBrain brain)
     public int Age { get; set; } = 0;
     public int Hunger { get; set; } = 0;
     public int FoodEaten { get; private set; } = 0;
+    public int ConsecutiveCollisions { get; private set; } = 0;
+    public int WallCollisions { get; private set; } = 0;
+    public int WormBodyCollisions { get; private set; } = 0;
+    public int TotalCollisions => WallCollisions + WormBodyCollisions;
+    public int Length => Body.Count + 1;
 
     public readonly Guid Id = Guid.NewGuid();
 
@@ -38,8 +43,29 @@ public class Worm(Position head, List<Position> body, WormBrain brain)
             growCount--;
         }
         CurrentDirection = direction;
-        Age++;
-        Hunger++;
+        ConsecutiveCollisions = 0;
+        AdvanceTime();
+    }
+
+    public void RegisterCollision(DeathReason collisionType)
+    {
+        switch (collisionType)
+        {
+            case DeathReason.Wall:
+                WallCollisions++;
+                break;
+            case DeathReason.WormBody:
+                WormBodyCollisions++;
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(
+                    nameof(collisionType),
+                    collisionType,
+                    "A collision must be either a wall or a worm body collision.");
+        }
+
+        ConsecutiveCollisions++;
+        AdvanceTime();
     }
 
     public void Die(DeathReason deathReason)
@@ -74,8 +100,15 @@ public class Worm(Position head, List<Position> body, WormBrain brain)
 
     public void PrintDebug()
     {
-        Debug.WriteLine($"Worm with age {Age} and length {Body.Count} to direction {CurrentDirection}");
+        Debug.WriteLine(
+            $"Worm with age {Age}, length {Length}, collisions {TotalCollisions} to direction {CurrentDirection}");
         Brain.PrintDebug();
+    }
+
+    private void AdvanceTime()
+    {
+        Age++;
+        Hunger++;
     }
 }
 

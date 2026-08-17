@@ -15,6 +15,11 @@
         public const double ViewDistance = 70.0;
         public const int MaxHunger = 300;
         public const int FoodGenerationTicks = 20;
+        public const int MaxConsecutiveCollisions = 3;
+
+        public const double FitnessAgeWeight = 1.0;
+        public const double FitnessFoodWeight = 100.0;
+        public const double FitnessCollisionPenalty = 50.0;
 
     }
 }

@@ -133,7 +133,7 @@ namespace NeuroWorms.Core.Neuro
                         left,
                         distanceSquared,
                         new FoundInfo(
-                            relativeAngle / halfViewAngleRadians,
+                            -relativeAngle / halfViewAngleRadians,
                             distance / viewDistance * 2.0 - 1.0)));
                 }
             }

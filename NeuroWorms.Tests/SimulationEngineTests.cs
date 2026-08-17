@@ -19,12 +19,17 @@ public class SimulationEngineTests
         Assert.Equal(0, engine.CurrentTick);
         Assert.All(engine.Worms, worm => Assert.Equal(0, worm.Age));
         Assert.Empty(engine.Worms.Intersect(previousGeneration));
-        Assert.Equal(0, engine.LastGenerationResult.Generation);
+        Assert.Equal(1, engine.LastGenerationResult.Generation);
         Assert.Equal(Constants.MaxGenerationTicks, engine.LastGenerationResult.Ticks);
         Assert.Equal(0, engine.LastGenerationResult.BestAge);
         Assert.Equal(0.0, engine.LastGenerationResult.AverageAge);
         Assert.Equal(0, engine.LastGenerationResult.BestFoodEaten);
         Assert.Equal(0.0, engine.LastGenerationResult.AverageFoodEaten);
+        Assert.Equal(0.0, engine.LastGenerationResult.BestFitness);
+        Assert.Equal(0.0, engine.LastGenerationResult.AverageFitness);
+        Assert.Equal(0, engine.LastGenerationResult.WallCollisions);
+        Assert.Equal(0, engine.LastGenerationResult.WormBodyCollisions);
+        Assert.Equal(0.0, engine.LastGenerationResult.AverageCollisions);
         Assert.Equal(0, engine.LastGenerationResult.HungerDeaths);
         Assert.Equal(0, engine.LastGenerationResult.WallDeaths);
         Assert.Equal(0, engine.LastGenerationResult.WormBodyDeaths);
@@ -49,29 +54,29 @@ public class SimulationEngineTests
     }
 
     [Fact]
-    public async Task ParentSelectionPrioritizesLengthAndUsesAgeToBreakTies()
+    public async Task ParentSelectionUsesWeightedFitnessAndPenalizesCollisions()
     {
         var strategy = new MixedCloneAndMutate();
-        var engine = new SimulationEngine(saveFilePath: null);
+        var engine = new SimulationEngine(saveFilePath: null, strategy);
         engine.Worms.Clear();
 
-        var lengthTen = CreateCandidate("length-10", bodyLength: 10, age: 100);
-        var lengthNine = CreateCandidate("length-9", bodyLength: 9, age: 100);
-        var lengthEight = CreateCandidate("length-8", bodyLength: 8, age: 100);
-        var lengthSeven = CreateCandidate("length-7", bodyLength: 7, age: 100);
-        var lengthSix = CreateCandidate("length-6", bodyLength: 6, age: 100);
-        var olderLengthFive = CreateCandidate("length-5-older", bodyLength: 5, age: 200);
-        var youngerLengthFive = CreateCandidate("length-5-younger", bodyLength: 5, age: 100);
-        var ancientButShort = CreateCandidate("length-4-ancient", bodyLength: 4, age: 5_000);
+        var old = CreateCandidate("old", age: 5_000);
+        var foodTen = CreateCandidate("food-10", age: 0, foodEaten: 10);
+        var foodNine = CreateCandidate("food-9", age: 0, foodEaten: 9);
+        var foodEight = CreateCandidate("food-8", age: 0, foodEaten: 8);
+        var foodSeven = CreateCandidate("food-7", age: 0, foodEaten: 7);
+        var collisionFree = CreateCandidate("collision-free", age: 0, foodEaten: 6);
+        var collided = CreateCandidate("collided", age: 0, foodEaten: 6, collisions: 1);
+        var weak = CreateCandidate("weak", age: 0, foodEaten: 5);
         engine.Worms.AddRange([
-            ancientButShort,
-            youngerLengthFive,
-            olderLengthFive,
-            lengthSix,
-            lengthSeven,
-            lengthEight,
-            lengthNine,
-            lengthTen,
+            weak,
+            collided,
+            collisionFree,
+            foodSeven,
+            foodEight,
+            foodNine,
+            foodTen,
+            old,
         ]);
 
         SetCurrentTick(engine, Constants.MaxGenerationTicks);
@@ -88,27 +93,111 @@ public class SimulationEngineTests
         Assert.Equal(strategy.ParentCount * childrenPerParent, inheritedBrains.Count);
         Assert.Equal(18, inheritedBrains.Count(brain => brain.MutationCount == 0));
         Assert.Equal(30, inheritedBrains.Count(brain => brain.MutationCount == 1));
-        Assert.Equal(childrenPerParent, inheritedBrains.Count(brain => brain.Marker == "length-10"));
-        Assert.Equal(childrenPerParent, inheritedBrains.Count(brain => brain.Marker == "length-9"));
-        Assert.Equal(childrenPerParent, inheritedBrains.Count(brain => brain.Marker == "length-8"));
-        Assert.Equal(childrenPerParent, inheritedBrains.Count(brain => brain.Marker == "length-7"));
-        Assert.Equal(childrenPerParent, inheritedBrains.Count(brain => brain.Marker == "length-6"));
-        Assert.Equal(childrenPerParent, inheritedBrains.Count(brain => brain.Marker == "length-5-older"));
-        Assert.DoesNotContain(inheritedBrains, brain => brain.Marker == "length-5-younger");
-        Assert.DoesNotContain(inheritedBrains, brain => brain.Marker == "length-4-ancient");
+        Assert.Equal(childrenPerParent, inheritedBrains.Count(brain => brain.Marker == "old"));
+        Assert.Equal(childrenPerParent, inheritedBrains.Count(brain => brain.Marker == "food-10"));
+        Assert.Equal(childrenPerParent, inheritedBrains.Count(brain => brain.Marker == "food-9"));
+        Assert.Equal(childrenPerParent, inheritedBrains.Count(brain => brain.Marker == "food-8"));
+        Assert.Equal(childrenPerParent, inheritedBrains.Count(brain => brain.Marker == "food-7"));
+        Assert.Equal(childrenPerParent, inheritedBrains.Count(brain => brain.Marker == "collision-free"));
+        Assert.DoesNotContain(inheritedBrains, brain => brain.Marker == "collided");
+        Assert.DoesNotContain(inheritedBrains, brain => brain.Marker == "weak");
     }
 
-    private static Worm CreateCandidate(string marker, int bodyLength, int age)
+    [Fact]
+    public async Task CollisionStopsWormAndThirdConsecutiveCollisionKillsIt()
     {
-        var body = Enumerable.Range(1, bodyLength - 1)
-            .Select(index => new Position(index, 0))
-            .ToList();
+        var engine = new SimulationEngine(
+            saveFilePath: null,
+            new SingleParentGenerationMutator());
+        engine.Field.Clear();
+        engine.Worms.Clear();
+        var worm = new Worm(
+            new Position(0, 2),
+            [new Position(1, 2), new Position(2, 2), new Position(3, 2)],
+            new FixedDirectionBrain(MoveDirection.Left))
+        {
+            CurrentDirection = MoveDirection.Left,
+        };
+        engine.Worms.Add(worm);
+        worm.RenderToField(engine.Field);
 
-        return new Worm(new Position(0, 0), body, new TrackingBrain(marker))
+        await engine.NextMove();
+        await engine.NextMove();
+
+        Assert.True(worm.IsAlive);
+        Assert.Equal(0, worm.Head.X);
+        Assert.Equal(2, worm.Head.Y);
+        Assert.Equal(2, worm.Age);
+        Assert.Equal(2, worm.Hunger);
+        Assert.Equal(2, worm.WallCollisions);
+        Assert.Equal(2, worm.ConsecutiveCollisions);
+
+        await engine.NextMove();
+
+        Assert.False(worm.IsAlive);
+        Assert.Equal(DeathReason.Wall, worm.DeathReason);
+        Assert.Equal(3, worm.Age);
+        Assert.Equal(3, worm.WallCollisions);
+        Assert.Equal(CellType.Empty, engine.Field[0, 2]);
+
+        await engine.NextMove();
+
+        Assert.Equal(1, engine.CurrentGeneration);
+        Assert.Equal(3, engine.LastGenerationResult.WallCollisions);
+        Assert.Equal(0, engine.LastGenerationResult.WormBodyCollisions);
+        Assert.Equal(3.0, engine.LastGenerationResult.AverageCollisions);
+        Assert.Equal(1, engine.LastGenerationResult.WallDeaths);
+    }
+
+    [Fact]
+    public void SuccessfulMoveResetsConsecutiveCollisionStreak()
+    {
+        var field = new Field(8, 8);
+        var worm = new Worm(
+            new Position(3, 3),
+            [new Position(2, 3)],
+            new FixedDirectionBrain(MoveDirection.Right))
+        {
+            CurrentDirection = MoveDirection.Right,
+        };
+        worm.RenderToField(field);
+        worm.RegisterCollision(DeathReason.Wall);
+        worm.RegisterCollision(DeathReason.WormBody);
+
+        worm.Move(MoveDirection.Right, field);
+
+        Assert.Equal(0, worm.ConsecutiveCollisions);
+        Assert.Equal(2, worm.TotalCollisions);
+        Assert.Equal(3, worm.Age);
+        Assert.Equal(3, worm.Hunger);
+    }
+
+    private static Worm CreateCandidate(
+        string marker,
+        int age,
+        int foodEaten = 0,
+        int collisions = 0)
+    {
+        var worm = new Worm(
+            new Position(0, 0),
+            [new Position(1, 0)],
+            new TrackingBrain(marker))
         {
             Age = age,
             CurrentDirection = MoveDirection.Right,
         };
+
+        for (var i = 0; i < foodEaten; i++)
+        {
+            worm.Eat();
+        }
+
+        for (var i = 0; i < collisions; i++)
+        {
+            worm.RegisterCollision(DeathReason.Wall);
+        }
+
+        return worm;
     }
 
     private static void SetCurrentTick(SimulationEngine engine, int value)
@@ -149,6 +238,38 @@ public class SimulationEngineTests
         public override MoveDirection GetNextMove(Field field, Worm worm)
         {
             return worm.CurrentDirection;
+        }
+    }
+
+    private sealed class FixedDirectionBrain(MoveDirection direction) : WormBrain
+    {
+        public override void Init()
+        {
+        }
+
+        public override WormBrain Clone()
+        {
+            return new FixedDirectionBrain(direction);
+        }
+
+        public override void Mutate()
+        {
+        }
+
+        public override MoveDirection GetNextMove(Field field, Worm worm)
+        {
+            return direction;
+        }
+    }
+
+    private sealed class SingleParentGenerationMutator : GenerationMutator
+    {
+        public override IReadOnlyList<WormBrain> CreateNextGeneration(
+            IReadOnlyList<Worm> rankedPopulation)
+        {
+            return Enumerable.Range(0, Constants.StartWormCount)
+                .Select(_ => rankedPopulation[0].Brain.Clone())
+                .ToList();
         }
     }
 }

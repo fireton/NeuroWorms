@@ -20,14 +20,14 @@ public class CheckpointTests
             Assert.True(File.Exists(checkpointPath));
 
             using var json = JsonDocument.Parse(File.ReadAllText(checkpointPath));
-            Assert.Equal(1, json.RootElement.GetProperty("version").GetInt32());
+            Assert.Equal(2, json.RootElement.GetProperty("version").GetInt32());
             Assert.Equal(0, json.RootElement.GetProperty("generation").GetInt32());
             Assert.Equal(
                 Constants.StartWormCount,
                 json.RootElement.GetProperty("population").GetArrayLength());
             var firstGenome = json.RootElement.GetProperty("population")[0];
-            Assert.Equal(36, firstGenome.GetProperty("biases").GetArrayLength());
-            Assert.Equal(635, firstGenome.GetProperty("weights").GetArrayLength());
+            Assert.Equal(19, firstGenome.GetProperty("biases").GetArrayLength());
+            Assert.Equal(258, firstGenome.GetProperty("weights").GetArrayLength());
         }
         finally
         {
@@ -77,6 +77,29 @@ public class CheckpointTests
                 () => new SimulationEngine(checkpointPath));
 
             Assert.Contains(checkpointPath, exception.Message);
+        }
+        finally
+        {
+            DeleteCheckpoint(checkpointPath);
+        }
+    }
+
+    [Fact]
+    public void OldNetworkCheckpointFailsWithExplicitVersionError()
+    {
+        var checkpointPath = CreateCheckpointPath();
+        try
+        {
+            _ = new SimulationEngine(checkpointPath);
+            var json = File.ReadAllText(checkpointPath)
+                .Replace("\"version\": 2", "\"version\": 1", StringComparison.Ordinal);
+            File.WriteAllText(checkpointPath, json);
+
+            var exception = Assert.Throws<InvalidDataException>(
+                () => new SimulationEngine(checkpointPath));
+
+            Assert.Contains("version 1", exception.Message);
+            Assert.Contains("expected 2", exception.Message);
         }
         finally
         {

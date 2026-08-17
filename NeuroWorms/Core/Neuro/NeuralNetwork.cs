@@ -32,15 +32,22 @@ namespace NeuroWorms.Core.Neuro
             AddNeuron(new EyeDistanceSensor(NeuroConstants.WallDistanceSensorId, eyeSight, ObjectType.Wall), 0);
             // obstacle detection
             AddNeuron(new ObstacleAtLeftSensor(), 0);
+            AddNeuron(new ObstacleAheadSensor(), 0);
             AddNeuron(new ObstacleAtRightSensor(), 0);
             // worm self-awareness
             AddNeuron(new LengthSensor(), 0);
-            AddNeuron(new DirectionXSensor(), 0);
-            AddNeuron(new DirectionYSensor(), 0);
             AddNeuron(new HungerSensor(), 0);
+            AddNeuron(new CollisionStreakSensor(), 0);
             // and then motor neuron
-            MotorNeuron = new MotorNeuron(NeuroRnd.Next());
+            MotorNeuron = new MotorNeuron(0.0);
             AddNeuron(MotorNeuron, 3);
+
+            var sensorCount = GetNeuronsInLayer(0).Count();
+            if (sensorCount != NeuroConstants.SensorCount)
+            {
+                throw new InvalidOperationException(
+                    $"The network contains {sensorCount} sensors; expected {NeuroConstants.SensorCount}.");
+            }
         }
 
         public void AddNeuron(BasicNeuron neuron, int layer)
@@ -179,7 +186,7 @@ namespace NeuroWorms.Core.Neuro
         {
             ArgumentNullException.ThrowIfNull(settings);
 
-            var mutableNeurons = NeuroConstants.NeuronsInHiddenLayer1 + NeuroConstants.NeuronsInHiddenLayer2 + 1;
+            var mutableNeurons = GetEvolvingNeurons().Count();
             var neuronsToMutate = (int)Math.Max(1, Math.Round(mutableNeurons * settings.PercentOfNeurons / 100.0));
             var neurons = GetRandomNeuronsWithSynapses(neuronsToMutate);
             foreach (var neuron in neurons)

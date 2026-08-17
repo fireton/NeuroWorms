@@ -15,15 +15,16 @@ namespace NeuroWorms.Core.Neuro
         public static readonly Guid WallPresenceSensorId = new("EBFAF543-CCD2-4257-AFB6-1C18C333AF23");
         public static readonly Guid LengthSensorId = new("02C916E0-2F10-4EF9-9C98-FFDCA43F6F02");
         public static readonly Guid MotorNeuronId = new("1192BFDE-F516-41FE-BE8C-8EAC91B538AC");
-        public static readonly Guid DirXNeuronId = new("AD46D9E7-34B8-4413-8032-43422413047B");
-        public static readonly Guid DirYNeuronId = new("92FCF541-9529-4E34-BE95-5B52D5878371");
         public static readonly Guid HungerSensorId = new("C0A2E4D1-3F5B-4E8F-9A7C-6D1B2F5A0E7D");
         public static readonly Guid ObstacleAtLeftSensorId = new("2F97F73E-9474-4283-B0B8-EEE7D074888E");
         public static readonly Guid ObstacleAtRightSensorId = new("FC77A6A0-F5FA-48C5-99C8-51076459F5B3");
+        public static readonly Guid ObstacleAheadSensorId = new("6EBC431C-A53A-49E7-8780-E07AA669D4BA");
+        public static readonly Guid CollisionStreakSensorId = new("68AD1646-7767-4A34-9D8A-3A59D279F593");
 
         public const double MutationStrength = 0.075;
-        public const int NeuronsInHiddenLayer1 = 25;
-        public const int NeuronsInHiddenLayer2 = 10;
+        public const int SensorCount = 15;
+        public const int NeuronsInHiddenLayer1 = 12;
+        public const int NeuronsInHiddenLayer2 = 6;
         public const int PercentOfNeuronsToMutate = 15;
     }
 }

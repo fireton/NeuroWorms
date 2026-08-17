@@ -15,7 +15,7 @@ try
         options.SaveFilePath ?? SimulationEngine.DefaultSaveFilePath);
     if (options.Clean)
     {
-        Console.WriteLine($"Ignoring existing checkpoint and starting from generation 0: {checkpointPath}");
+        Console.WriteLine($"Ignoring existing checkpoint and starting from generation 1: {checkpointPath}");
     }
 
     var engine = new SimulationEngine(checkpointPath, loadCheckpoint: !options.Clean);
@@ -29,7 +29,7 @@ try
 
     Console.WriteLine("NeuroWorms headless trainer");
     Console.WriteLine($"Checkpoint: {engine.SaveFilePath}");
-    Console.WriteLine($"Start generation: {startGeneration}");
+    Console.WriteLine($"Next generation: {startGeneration + 1}");
     Console.WriteLine(
         targetGeneration.HasValue
             ? $"Target generation: {targetGeneration.Value}"
@@ -79,11 +79,16 @@ try
 
         Console.WriteLine(
             $"Gen {result.Generation,6} | ticks {result.Ticks,4} | " +
-            $"age {result.BestAge,4}/{result.AverageAge,7:F1} best/avg | " +
-            $"food {result.BestFoodEaten,3}/{result.AverageFoodEaten,6:F1} best/avg | " +
+            $"best/avg: age {result.BestAge}/{result.AverageAge:F1} | " +
+            $"food {result.BestFoodEaten}/{result.AverageFoodEaten:F1} | " +
+            $"fit {result.BestFitness:F0}/{result.AverageFitness:F1}");
+        Console.WriteLine(
+            $"           | " +
+            $"hits W/B {result.WallCollisions,3}/{result.WormBodyCollisions,3} " +
+            $"({result.AverageCollisions:F1}/worm) | " +
             $"deaths H/W/B {result.HungerDeaths,2}/{result.WallDeaths,2}/{result.WormBodyDeaths,2} " +
             $"({hungerDeathPercent,3:F0}%/{wallDeathPercent,3:F0}%/{wormBodyDeathPercent,3:F0}%) | " +
-            $"survivors {result.Survivors,2} | {generationsPerSecond:F2} gen/s");
+            $"alive {result.Survivors,2} | {generationsPerSecond:F2} gen/s");
 
         lastReportGeneration = engine.CurrentGeneration;
         lastReportTime = stopwatch.Elapsed;
@@ -124,7 +129,7 @@ static void PrintHelp()
           -u, --until N         Run until absolute generation N.
           -r, --report-every N  Print progress every N generations (default: 5).
           -s, --save-file PATH  Use a custom checkpoint instead of the shared default.
-              --clean           Ignore the selected checkpoint and start from generation 0.
+              --clean           Ignore the selected checkpoint and start from generation 1.
           -h, --help            Show this help.
 
         With no generation limit, the trainer runs until Ctrl+C is pressed.

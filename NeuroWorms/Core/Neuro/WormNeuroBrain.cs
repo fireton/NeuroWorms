@@ -48,8 +48,10 @@ namespace NeuroWorms.Core.Neuro
         public override void Init()
         {
             // add hidden neurons
-            NeuroConstants.NeuronsInHiddenLayer1.Times(() => neuralNetwork.AddNeuron(new Neuron(Guid.NewGuid(), NeuroRnd.Next()), 1));
-            NeuroConstants.NeuronsInHiddenLayer2.Times(() => neuralNetwork.AddNeuron(new Neuron(Guid.NewGuid(), NeuroRnd.Next()), 2));
+            NeuroConstants.NeuronsInHiddenLayer1.Times(() =>
+                neuralNetwork.AddNeuron(new Neuron(Guid.NewGuid(), 0.0), 1));
+            NeuroConstants.NeuronsInHiddenLayer2.Times(() =>
+                neuralNetwork.AddNeuron(new Neuron(Guid.NewGuid(), 0.0), 2));
 
             // now we connect all neurons in sensor layer with all neurons in first hidden layer
             var sensorNeurons = neuralNetwork.GetNeuronsInLayer(0);
@@ -58,7 +60,11 @@ namespace NeuroWorms.Core.Neuro
             {
                 foreach (var hiddenNeuron in hiddenNeurons1)
                 {
-                    hiddenNeuron.Synapses.Add(new Synapse(NeuroRnd.Next(), sensorNeuron));
+                    hiddenNeuron.Synapses.Add(new Synapse(
+                        NeuroRnd.Xavier(
+                            NeuroConstants.SensorCount,
+                            NeuroConstants.NeuronsInHiddenLayer1),
+                        sensorNeuron));
                 }
             }
 
@@ -67,7 +73,9 @@ namespace NeuroWorms.Core.Neuro
             var motorNeuron = neuralNetwork.GetNeuronWithSynapsesInLayer(3).FirstOrDefault() ?? throw new InvalidOperationException("Motor neuron not found!"); // it's only one neuron in motor layer
             foreach (var hiddenNeuron in hiddenNeurons2)
             {
-                motorNeuron.Synapses.Add(new Synapse(NeuroRnd.Next(), hiddenNeuron));
+                motorNeuron.Synapses.Add(new Synapse(
+                    NeuroRnd.Xavier(NeuroConstants.NeuronsInHiddenLayer2, 1),
+                    hiddenNeuron));
             }
 
             // now we connect all neurons in first hidden layer with all neurons in second hidden layer
@@ -75,7 +83,11 @@ namespace NeuroWorms.Core.Neuro
             {
                 foreach (var hiddenNeuron2 in hiddenNeurons2)
                 {
-                    hiddenNeuron2.Synapses.Add(new Synapse(NeuroRnd.Next(), hiddenNeuron1));
+                    hiddenNeuron2.Synapses.Add(new Synapse(
+                        NeuroRnd.Xavier(
+                            NeuroConstants.NeuronsInHiddenLayer1,
+                            NeuroConstants.NeuronsInHiddenLayer2),
+                        hiddenNeuron1));
                 }
             }
         }

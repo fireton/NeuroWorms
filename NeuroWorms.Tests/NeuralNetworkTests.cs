@@ -1,3 +1,4 @@
+using NeuroWorms.Core;
 using NeuroWorms.Core.Neuro;
 
 namespace NeuroWorms.Tests;
@@ -5,7 +6,7 @@ namespace NeuroWorms.Tests;
 public class NeuralNetworkTests
 {
     [Fact]
-    public void EyeSensorIdsAreUnique()
+    public void AllSensorIdsAreUnique()
     {
         var sensorIds = new[]
         {
@@ -18,9 +19,61 @@ public class NeuralNetworkTests
             NeuroConstants.WallAngleSensorId,
             NeuroConstants.WallDistanceSensorId,
             NeuroConstants.WallPresenceSensorId,
+            NeuroConstants.ObstacleAtLeftSensorId,
+            NeuroConstants.ObstacleAheadSensorId,
+            NeuroConstants.ObstacleAtRightSensorId,
+            NeuroConstants.LengthSensorId,
+            NeuroConstants.HungerSensorId,
+            NeuroConstants.CollisionStreakSensorId,
         };
 
+        Assert.Equal(NeuroConstants.SensorCount, sensorIds.Length);
         Assert.Equal(sensorIds.Length, sensorIds.Distinct().Count());
+    }
+
+    [Fact]
+    public void InitializedBrainHasCompactTopologyAndXavierWeights()
+    {
+        var brain = new WormNeuroBrain();
+
+        brain.Init();
+        var genome = brain.ExportGenome();
+
+        Assert.Equal(19, genome.Biases.Count);
+        Assert.Equal(258, genome.Weights.Count);
+        Assert.All(genome.Biases, bias => Assert.Equal(0.0, bias));
+
+        AssertWeightsWithinXavierLimit(
+            genome.Weights.Take(180),
+            fanIn: NeuroConstants.SensorCount,
+            fanOut: NeuroConstants.NeuronsInHiddenLayer1);
+        AssertWeightsWithinXavierLimit(
+            genome.Weights.Skip(180).Take(72),
+            fanIn: NeuroConstants.NeuronsInHiddenLayer1,
+            fanOut: NeuroConstants.NeuronsInHiddenLayer2);
+        AssertWeightsWithinXavierLimit(
+            genome.Weights.Skip(252).Take(6),
+            fanIn: NeuroConstants.NeuronsInHiddenLayer2,
+            fanOut: 1);
+    }
+
+    [Theory]
+    [InlineData(-10.0, MoveDirection.Left)]
+    [InlineData(0.0, MoveDirection.Up)]
+    [InlineData(10.0, MoveDirection.Right)]
+    public void MotorUsesNegativeForLeftAndPositiveForRight(
+        double bias,
+        MoveDirection expectedDirection)
+    {
+        var motor = new MotorNeuron(bias);
+        var worm = new Worm(new Position(2, 2), [], new StupidRandomBrain())
+        {
+            CurrentDirection = MoveDirection.Up,
+        };
+
+        motor.Reset(worm);
+
+        Assert.Equal(expectedDirection, motor.GetDirection());
     }
 
     [Fact]
@@ -107,5 +160,14 @@ public class NeuralNetworkTests
             ActivationCount++;
             return ActivationCount;
         }
+    }
+
+    private static void AssertWeightsWithinXavierLimit(
+        IEnumerable<double> weights,
+        int fanIn,
+        int fanOut)
+    {
+        var limit = Math.Sqrt(6.0 / (fanIn + fanOut));
+        Assert.All(weights, weight => Assert.InRange(weight, -limit, limit));
     }
 }
