@@ -22,10 +22,14 @@ namespace NeuroWorms.Core.Neuro
             AddNeuron(new EyeObjectDetectionSensor(NeuroConstants.FoodPresenceSensorId, eyeSight, ObjectType.Food), 0);
             AddNeuron(new EyeAngleSensor(NeuroConstants.FoodAngleSensorId, eyeSight, ObjectType.Food), 0);
             AddNeuron(new EyeDistanceSensor(NeuroConstants.FoodDistanceSensorId, eyeSight, ObjectType.Food), 0);
-            // worm detection
-            AddNeuron(new EyeObjectDetectionSensor(NeuroConstants.WormPresenceSensorId, eyeSight, ObjectType.Worm), 0);
-            AddNeuron(new EyeAngleSensor(NeuroConstants.WormAngleSensorId, eyeSight, ObjectType.Worm), 0);
-            AddNeuron(new EyeDistanceSensor(NeuroConstants.WormDistanceSensorId, eyeSight, ObjectType.Worm), 0);
+            // other-worm detection
+            AddNeuron(new EyeObjectDetectionSensor(NeuroConstants.OtherWormPresenceSensorId, eyeSight, ObjectType.OtherWorm), 0);
+            AddNeuron(new EyeAngleSensor(NeuroConstants.OtherWormAngleSensorId, eyeSight, ObjectType.OtherWorm), 0);
+            AddNeuron(new EyeDistanceSensor(NeuroConstants.OtherWormDistanceSensorId, eyeSight, ObjectType.OtherWorm), 0);
+            // own-body detection
+            AddNeuron(new EyeObjectDetectionSensor(NeuroConstants.OwnBodyPresenceSensorId, eyeSight, ObjectType.OwnBody), 0);
+            AddNeuron(new EyeAngleSensor(NeuroConstants.OwnBodyAngleSensorId, eyeSight, ObjectType.OwnBody), 0);
+            AddNeuron(new EyeDistanceSensor(NeuroConstants.OwnBodyDistanceSensorId, eyeSight, ObjectType.OwnBody), 0);
             // wall detection
             AddNeuron(new EyeObjectDetectionSensor(NeuroConstants.WallPresenceSensorId, eyeSight, ObjectType.Wall), 0);
             AddNeuron(new EyeAngleSensor(NeuroConstants.WallAngleSensorId, eyeSight, ObjectType.Wall), 0);
@@ -38,6 +42,10 @@ namespace NeuroWorms.Core.Neuro
             AddNeuron(new LengthSensor(), 0);
             AddNeuron(new HungerSensor(), 0);
             AddNeuron(new CollisionStreakSensor(), 0);
+            var bodySense = new BodySense();
+            AddNeuron(new OwnBodyAvoidanceForwardSensor(bodySense), 0);
+            AddNeuron(new OwnBodyAvoidanceRightSensor(bodySense), 0);
+            AddNeuron(new OwnBodyPressureSensor(bodySense), 0);
             // and then motor neuron
             MotorNeuron = new MotorNeuron(0.0);
             AddNeuron(MotorNeuron, 3);

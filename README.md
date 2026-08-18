@@ -21,8 +21,8 @@ The graphical application and trainer use the same simulation engine, evolution 
 | Field | `180 × 180` cells |
 | Population | 50 worms |
 | Initial worm size | 1 head + 3 body cells |
-| Initial food | 100 cells |
-| Hunger threshold | 300 ticks without food |
+| Food on field | 50 cells |
+| Hunger threshold | 300 hunger units |
 | Generation limit | 5000 ticks |
 | Fatal collision streak | 3 consecutive collisions |
 | Radar field of view | 180° |
@@ -36,9 +36,9 @@ The requested cell is then handled as follows:
 - food — the worm eats, grows by one cell, and moves;
 - wall or any worm head/body — the worm remains in place and registers a collision.
 
-A collision still advances age and hunger. The first two consecutive collisions are recoverable, giving the brain another decision on the next tick. The third consecutive collision kills the worm with either `Wall` or `WormBody` as the death reason. Any successful movement, including movement onto food, resets the consecutive-collision streak. The total number of collisions remains recorded for statistics and fitness.
+A collision still advances age and hunger. The first two consecutive collisions are recoverable, giving the brain another decision on the next tick. The third consecutive collision kills the worm with `Wall`, `SelfBody`, or `OtherWorm` as the death reason. Any successful movement, including movement onto food, resets the consecutive-collision streak. The total number of collisions remains recorded for statistics and fitness.
 
-Hunger increases on both movement and collision ticks. Eating resets it before the eating movement is completed. A worm dies when its hunger becomes greater than 300. A dead worm is removed from the field immediately; its body currently becomes empty cells, not food.
+Hunger increases on both movement and collision ticks. The metabolic cost of a tick is `1 + (Length - 1) / 50`, so longer worms must eat more frequently. Hunger is accumulated as a fractional value without length thresholds. Eating resets it before the eating movement is completed, and a worm dies when its hunger becomes greater than 300. A dead worm is removed from the field immediately; its body currently becomes empty cells, not food.
 
 A generation ends when every worm is dead or after 5000 ticks. User-facing generation numbers start at 1.
 
@@ -46,23 +46,23 @@ A generation ends when every worm is dead or after 5000 ticks. User-facing gener
 
 Food is currently distributed uniformly among empty cells:
 
-1. Every new generation starts with exactly 100 food cells.
+1. Every new generation starts with exactly 50 food cells — one per worm.
 2. When a food cell is eaten, one replacement food cell is created immediately at another random empty position.
-3. The simulation additionally creates one food cell whenever the periodic counter exceeds 20 — with the current condition, this means every 21 ticks.
+3. No additional food is created over time, so the field always contains 50 food cells.
 4. Food does not expire or move.
-5. At the next generation boundary the field is cleared and reset to 100 food cells.
+5. At the next generation boundary the field is cleared and reset to 50 food cells.
 
-Consequently, eating does not reduce the amount of food on the field, while the periodic source gradually increases it during a long generation. Clustered spawning and recycling dead worms into food are ideas only; they are not implemented yet.
+Consequently, eating does not reduce the amount of food on the field, but waiting no longer makes food increasingly abundant. Clustered spawning and recycling dead worms into food are ideas only; they are not implemented yet.
 
 ## Neural network
 
 Every worm currently uses the same fixed dense topology:
 
 ```text
-15 sensors → 12 hidden neurons → 6 hidden neurons → 1 motor neuron
+21 sensors → 12 hidden neurons → 6 hidden neurons → 1 motor neuron
 ```
 
-This produces 19 trainable biases and 258 trainable weights. Hidden and motor neurons use `tanh`. New weights use Xavier uniform initialization for their respective layer sizes, and every bias starts at zero.
+This produces 19 trainable biases and 330 trainable weights. Hidden and motor neurons use `tanh`. New weights use Xavier uniform initialization for their respective layer sizes, and every bias starts at zero.
 
 The motor output maps to relative movement:
 
@@ -72,17 +72,19 @@ The motor output maps to relative movement:
 
 ### Sensors
 
-The 15 inputs are:
+The 21 inputs are:
 
 | Count | Inputs |
 |---:|---|
 | 3 | Food presence, relative angle, and distance |
-| 3 | Worm presence, relative angle, and distance |
+| 3 | Other-worm presence, relative angle, and distance |
+| 3 | Own-body presence, relative angle, and distance |
 | 3 | Wall presence, relative angle, and distance |
 | 3 | Contents of the immediately adjacent left, ahead, and right cells |
 | 1 | Body length |
 | 1 | Hunger |
 | 1 | Consecutive-collision state |
+| 3 | Own-body avoidance forward/right and surrounding body pressure |
 
 Adjacent-cell sensors return `-1` for food, `0` for empty, and `+1` for a wall, worm body, or worm head.
 
@@ -90,12 +92,26 @@ The length sensor maps length 0–50 approximately onto `[-1; +1]`; it is not cl
 
 Absolute X/Y direction sensors are intentionally absent. Vision and motor actions are expressed in the worm's local frame.
 
+Each worm-owned field cell carries a compact integer `OwnerId`. The radar uses it to expose the nearest own-body cell and nearest other-worm cell through separate visual triples. Other heads and bodies are still treated as one visual category. The adjacent-cell sensors remain tactile obstacle sensors and intentionally do not distinguish walls, self, and other worms.
+
+### Own-body sense
+
+The three proprioceptive inputs are calculated together in one pass over the worm's body. The first three segments behind the head are ignored because their predictable position would otherwise dominate the result.
+
+Every remaining segment contributes an imaginary repulsion weighted by `1 / (1 + distance²)`:
+
+- `OwnBodyAvoidanceForward` indicates whether nearby body mass pushes the safe direction forward or backward;
+- `OwnBodyAvoidanceRight` indicates whether the safe direction is toward the right or left;
+- `OwnBodyPressure` measures nearby body density even when opposing directional contributions cancel out.
+
+The calculation uses coordinates relative to the current heading, squared distance, and no trigonometry or square roots. Directional values are clamped to `[-1; +1]`, and pressure to `[0; +1]`. The three sensors share the cached result, so the body is traversed only once per neural-network decision.
+
 ### Radar-like vision
 
 `EyeSight` behaves like a radar rather than occluded visual sight:
 
 - it scans the complete integer-cell half-disk in front of the worm;
-- it returns the nearest detected `Food`, `Worm`, and `Wall` independently;
+- it returns the nearest detected `Food`, `OwnBody`, `OtherWorm`, and `Wall` independently;
 - relative angle is normalized from `-1` on the left to `+1` on the right, matching the motor convention;
 - distance is normalized from approximately `-1` nearby to `+1` at maximum range;
 - walls and bodies do not hide cells behind them.
@@ -145,7 +161,7 @@ Two older strategies remain available in code for experiments but are not select
 2. Capture age, food, fitness, collision, survivor, and death-reason statistics.
 3. Rank the population and create the next 50 brains.
 4. Clear the field and place the new worms.
-5. Reset food and tick counters.
+5. Reset the field to 50 food cells and reset the generation tick counter.
 6. Increment the completed-generation counter.
 7. Atomically save the new population to the checkpoint.
 
@@ -209,17 +225,22 @@ A non-negative positional argument is also accepted as the number of generations
 ### Trainer output
 
 ```text
-Gen    433 | ticks 5000 | best/avg: age 5000/2578.2 | food 120/49.3 | fit 16350/6818.2
-           | hits W/B 339/355 (13.9/worm) | deaths H/W/B 2/1/40 (4%/2%/80%) | alive 7 | 0.41 gen/s
+------------------------------------------------------------------------------
+Gen    170 | ticks 2069 | alive  0 | 0.61 gen/s
+Champion | fit 5169 | age 2069 | food 38 | len 42 | hits 14 | death Hunger
+Average  | fit 1472.9 | age 685.9 | food 10.8 | hits 5.8
+Hits     | W  65 | S  42 | O 182
+Deaths   | H 14 (28%) | W  3 ( 6%) | S  8 (16%) | O 25 (50%)
 ```
 
 - `Gen` — evaluated generation, numbered from 1;
 - `ticks` — duration of the generation;
-- `age`, `food`, `fit` — best and population-average values;
-- `hits W/B` — total wall/body collision events and average total collisions per worm, including recoverable collisions;
-- `deaths H/W/B` — deaths from hunger, walls, and worm heads/bodies, with percentages of the full population;
 - `alive` — worms still alive when the generation reached its tick limit;
 - `gen/s` — throughput since the previous report.
+- `Champion` — all metrics of the single highest-ranked worm selected for reproduction; `death Alive` means it reached the generation limit;
+- `Average` — population-average fitness, age, food eaten, and collisions;
+- `Hits W/S/O` — total collision events with walls, the worm's own body, and other worms; recoverable collisions are included;
+- `Deaths H/W/S/O` — deaths from hunger, walls, the worm's own body, and other worms, with percentages of the full population.
 
 Best age, food, and fitness are independent maxima and may belong to different worms.
 
@@ -237,16 +258,16 @@ On macOS this normally resolves to:
 ~/Library/Application Support/NeuroWorms/checkpoint.json
 ```
 
-Checkpoint schema version 2 stores:
+Checkpoint schema version 4 stores:
 
 - the number of completed generations;
 - the UTC save timestamp;
 - all 50 brain genomes;
-- 19 biases and 258 weights per genome.
+- 19 biases and 330 weights per genome.
 
-It does not store the in-progress field, worm positions, ages, hunger, food placement, statistics, or random-number-generator state. Loading always starts a fresh field using the saved population.
+It does not store the in-progress field, worm positions, owner IDs, ages, hunger, food placement, statistics, or random-number-generator state. Loading always starts a fresh field using the saved population, and new runtime owner IDs are assigned to the worms.
 
-Writes use a temporary file followed by an atomic replacement. Invalid JSON, an incorrect population size, or an unsupported schema version fails explicitly instead of silently restarting evolution. Version 1 checkpoints from the previous network are intentionally incompatible; use `--clean` or a different `--save-file`.
+Writes use a temporary file followed by an atomic replacement. Invalid JSON, an incorrect population size, or an unsupported schema version fails explicitly instead of silently restarting evolution. Checkpoint versions 1–3 from previous networks are intentionally incompatible; use `--clean` or a different `--save-file`.
 
 ## Current limitations
 
@@ -254,6 +275,7 @@ Writes use a temporary file followed by an atomic replacement. Invalid JSON, an 
 - The network topology is fixed and dense; only weights and biases evolve.
 - Random-number-generator state is neither seeded from the command line nor persisted.
 - Radar vision passes through walls and worm bodies.
+- Other-worm vision distinguishes self from non-self but does not yet distinguish individual worms, heads, and bodies.
 - Food is uniformly distributed and grows in quantity during a generation.
 - There is no crossover, speciation, island training, or parallel simulation yet.
 
@@ -267,7 +289,7 @@ Run the complete test suite:
 dotnet test NeuroWorms.sln -c Release
 ```
 
-The suite covers neural-network topology and Xavier initialization, cloning and genome persistence, sensor refresh and direction conventions, all radar orientations, complete radar-cell coverage, nearest-object ordering, recoverable and fatal collisions, collision statistics and fitness penalties, weighted parent selection, mutation strategies, generation boundaries, and checkpoint recovery/versioning.
+The suite covers neural-network topology and Xavier initialization, cloning and genome persistence, sensor refresh and direction conventions, own-body avoidance geometry, all radar orientations, complete radar-cell coverage, nearest-object ordering, owner-aware self/other vision and collision classification, recoverable and fatal collisions, collision statistics and fitness penalties, weighted parent selection, mutation strategies, generation boundaries, and checkpoint recovery/versioning.
 
 ## License
 

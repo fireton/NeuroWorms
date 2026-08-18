@@ -1,11 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Threading;
 
 namespace NeuroWorms.Core;
 
 public class Worm(Position head, List<Position> body, WormBrain brain)
 {
+    private static int nextOwnerId;
     private int growCount = 0;
 
     public DeathReason DeathReason { get; set; } = DeathReason.None;
@@ -14,13 +16,16 @@ public class Worm(Position head, List<Position> body, WormBrain brain)
     public List<Position> Body { get; } = body;
     public WormBrain Brain { get; } = brain;
     public int Age { get; set; } = 0;
-    public int Hunger { get; set; } = 0;
+    public double Hunger { get; set; } = 0.0;
     public int FoodEaten { get; private set; } = 0;
     public int ConsecutiveCollisions { get; private set; } = 0;
     public int WallCollisions { get; private set; } = 0;
-    public int WormBodyCollisions { get; private set; } = 0;
-    public int TotalCollisions => WallCollisions + WormBodyCollisions;
+    public int SelfBodyCollisions { get; private set; } = 0;
+    public int OtherWormCollisions { get; private set; } = 0;
+    public int WormBodyCollisions => SelfBodyCollisions + OtherWormCollisions;
+    public int TotalCollisions => WallCollisions + SelfBodyCollisions + OtherWormCollisions;
     public int Length => Body.Count + 1;
+    public int OwnerId { get; } = Interlocked.Increment(ref nextOwnerId);
 
     public readonly Guid Id = Guid.NewGuid();
 
@@ -29,8 +34,8 @@ public class Worm(Position head, List<Position> body, WormBrain brain)
     public void Move(MoveDirection direction, Field field)
     {
         var newHead = field.RoundUp(Head.Move(direction));
-        field[newHead.X, newHead.Y] = CellType.WormHead;
-        field[Head.X, Head.Y] = CellType.WormBody;
+        field.SetWormCell(newHead, CellType.WormHead, OwnerId);
+        field.SetWormCell(Head, CellType.WormBody, OwnerId);
         Body.Insert(0, Head);
         Head = newHead;
         if (growCount == 0)
@@ -54,8 +59,11 @@ public class Worm(Position head, List<Position> body, WormBrain brain)
             case DeathReason.Wall:
                 WallCollisions++;
                 break;
-            case DeathReason.WormBody:
-                WormBodyCollisions++;
+            case DeathReason.SelfBody:
+                SelfBodyCollisions++;
+                break;
+            case DeathReason.OtherWorm:
+                OtherWormCollisions++;
                 break;
             default:
                 throw new ArgumentOutOfRangeException(
@@ -91,10 +99,10 @@ public class Worm(Position head, List<Position> body, WormBrain brain)
 
     public void RenderToField(Field field)
     {
-        field[Head.X, Head.Y] = CellType.WormHead;
+        field.SetWormCell(Head, CellType.WormHead, OwnerId);
         foreach (var bodyPart in Body)
         {
-            field[bodyPart.X, bodyPart.Y] = CellType.WormBody;
+            field.SetWormCell(bodyPart, CellType.WormBody, OwnerId);
         }
     }
 
@@ -108,7 +116,8 @@ public class Worm(Position head, List<Position> body, WormBrain brain)
     private void AdvanceTime()
     {
         Age++;
-        Hunger++;
+        Hunger += Constants.BaseHungerPerTick
+            + (Length - 1) * Constants.HungerPerExtraSegment;
     }
 }
 
@@ -116,6 +125,7 @@ public enum DeathReason
 {
     None = 0,
     Hunger = 1,
-    WormBody = 2,
-    Wall = 3,
+    SelfBody = 2,
+    OtherWorm = 3,
+    Wall = 4,
 }

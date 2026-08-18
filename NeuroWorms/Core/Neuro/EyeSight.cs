@@ -11,7 +11,7 @@ namespace NeuroWorms.Core.Neuro
     // every cell in the sector is visited from nearest to farthest.
     internal class EyeSight
     {
-        private const int ObjectTypeCount = 3;
+        private const int ObjectTypeCount = 4;
         private static readonly ConcurrentDictionary<ScanPattern, ScanOffset[]> ScanPatterns = new();
 
         private readonly double viewAngle;
@@ -69,9 +69,16 @@ namespace NeuroWorms.Core.Neuro
                     Found[ObjectType.Wall] = offset.FoundInfo;
                 }
                 else if ((type == CellType.WormHead || type == CellType.WormBody) &&
-                         !Found.ContainsKey(ObjectType.Worm))
+                         field.GetOwnerId(position) == worm.OwnerId &&
+                         !Found.ContainsKey(ObjectType.OwnBody))
                 {
-                    Found[ObjectType.Worm] = offset.FoundInfo;
+                    Found[ObjectType.OwnBody] = offset.FoundInfo;
+                }
+                else if ((type == CellType.WormHead || type == CellType.WormBody) &&
+                         field.GetOwnerId(position) != worm.OwnerId &&
+                         !Found.ContainsKey(ObjectType.OtherWorm))
+                {
+                    Found[ObjectType.OtherWorm] = offset.FoundInfo;
                 }
 
                 if (Found.Count == ObjectTypeCount)
@@ -182,7 +189,8 @@ namespace NeuroWorms.Core.Neuro
     public enum ObjectType
     {
         Food,
-        Worm,
+        OwnBody,
+        OtherWorm,
         Wall
     }
 }

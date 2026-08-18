@@ -26,7 +26,6 @@ namespace NeuroWorms.Core
         private readonly GenerationMutator generationMutator;
         private readonly FitnessFunction fitnessFunction;
 
-        private int foodTicks = 0;
         private readonly bool debug = false;
 
         public static string DefaultSaveFilePath => CheckpointStore.DefaultFilePath;
@@ -128,7 +127,11 @@ namespace NeuroWorms.Core
                         break;
                     case CellType.WormBody:
                     case CellType.WormHead:
-                        RegisterCollision(worm, DeathReason.WormBody);
+                        RegisterCollision(
+                            worm,
+                            Field.GetOwnerId(nextHead) == worm.OwnerId
+                                ? DeathReason.SelfBody
+                                : DeathReason.OtherWorm);
                         break;
                     case CellType.Wall:
                         RegisterCollision(worm, DeathReason.Wall);
@@ -145,12 +148,6 @@ namespace NeuroWorms.Core
             
             CurrentTick++;
             LongestAge = Math.Max(LongestAge, Worms.Max(w => w.Age));
-            foodTicks++;
-            if (foodTicks > Constants.FoodGenerationTicks)
-            {
-                foodTicks = 0;
-                GenerateNewFood();
-            }
 
             return Task.CompletedTask;
 
@@ -195,6 +192,13 @@ namespace NeuroWorms.Core
                     Fitness = fitnessFunction.Evaluate(worm),
                 })
                 .ToList();
+            var rankedCandidates = scoredPopulation
+                .OrderByDescending(candidate => candidate.Fitness)
+                .ThenByDescending(candidate => candidate.Worm.FoodEaten)
+                .ThenByDescending(candidate => candidate.Worm.Age)
+                .ThenBy(candidate => candidate.Worm.DeathReason)
+                .ToList();
+            var champion = rankedCandidates[0];
 
             LastGenerationResult = new GenerationResult(
                 CurrentGeneration + 1,
@@ -206,18 +210,24 @@ namespace NeuroWorms.Core
                 scoredPopulation.Max(candidate => candidate.Fitness),
                 scoredPopulation.Average(candidate => candidate.Fitness),
                 Worms.Sum(worm => worm.WallCollisions),
-                Worms.Sum(worm => worm.WormBodyCollisions),
+                Worms.Sum(worm => worm.SelfBodyCollisions),
+                Worms.Sum(worm => worm.OtherWormCollisions),
                 Worms.Average(worm => worm.TotalCollisions),
                 Worms.Count(worm => worm.DeathReason == DeathReason.Hunger),
                 Worms.Count(worm => worm.DeathReason == DeathReason.Wall),
-                Worms.Count(worm => worm.DeathReason == DeathReason.WormBody),
-                Worms.Count(worm => worm.IsAlive));
+                Worms.Count(worm => worm.DeathReason == DeathReason.SelfBody),
+                Worms.Count(worm => worm.DeathReason == DeathReason.OtherWorm),
+                Worms.Count(worm => worm.IsAlive),
+                champion.Worm.Age,
+                champion.Worm.FoodEaten,
+                champion.Worm.Length,
+                champion.Fitness,
+                champion.Worm.WallCollisions,
+                champion.Worm.SelfBodyCollisions,
+                champion.Worm.OtherWormCollisions,
+                champion.Worm.DeathReason);
 
-            var rankedPopulation = scoredPopulation
-                .OrderByDescending(candidate => candidate.Fitness)
-                .ThenByDescending(candidate => candidate.Worm.FoodEaten)
-                .ThenByDescending(candidate => candidate.Worm.Age)
-                .ThenBy(candidate => candidate.Worm.DeathReason)
+            var rankedPopulation = rankedCandidates
                 .Select(candidate => candidate.Worm)
                 .ToList();
             var newBrains = generationMutator.CreateNextGeneration(rankedPopulation);
@@ -233,7 +243,6 @@ namespace NeuroWorms.Core
             Worms = newWorms;
             InitFood();
             CurrentTick = 0;
-            foodTicks = 0;
             CurrentGeneration++;
             SaveCheckpoint();
         }

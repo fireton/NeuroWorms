@@ -13,9 +13,12 @@ public class NeuralNetworkTests
             NeuroConstants.FoodAngleSensorId,
             NeuroConstants.FoodDistanceSensorId,
             NeuroConstants.FoodPresenceSensorId,
-            NeuroConstants.WormAngleSensorId,
-            NeuroConstants.WormDistanceSensorId,
-            NeuroConstants.WormPresenceSensorId,
+            NeuroConstants.OtherWormAngleSensorId,
+            NeuroConstants.OtherWormDistanceSensorId,
+            NeuroConstants.OtherWormPresenceSensorId,
+            NeuroConstants.OwnBodyAngleSensorId,
+            NeuroConstants.OwnBodyDistanceSensorId,
+            NeuroConstants.OwnBodyPresenceSensorId,
             NeuroConstants.WallAngleSensorId,
             NeuroConstants.WallDistanceSensorId,
             NeuroConstants.WallPresenceSensorId,
@@ -25,6 +28,9 @@ public class NeuralNetworkTests
             NeuroConstants.LengthSensorId,
             NeuroConstants.HungerSensorId,
             NeuroConstants.CollisionStreakSensorId,
+            NeuroConstants.OwnBodyAvoidanceForwardSensorId,
+            NeuroConstants.OwnBodyAvoidanceRightSensorId,
+            NeuroConstants.OwnBodyPressureSensorId,
         };
 
         Assert.Equal(NeuroConstants.SensorCount, sensorIds.Length);
@@ -40,19 +46,19 @@ public class NeuralNetworkTests
         var genome = brain.ExportGenome();
 
         Assert.Equal(19, genome.Biases.Count);
-        Assert.Equal(258, genome.Weights.Count);
+        Assert.Equal(330, genome.Weights.Count);
         Assert.All(genome.Biases, bias => Assert.Equal(0.0, bias));
 
         AssertWeightsWithinXavierLimit(
-            genome.Weights.Take(180),
+            genome.Weights.Take(252),
             fanIn: NeuroConstants.SensorCount,
             fanOut: NeuroConstants.NeuronsInHiddenLayer1);
         AssertWeightsWithinXavierLimit(
-            genome.Weights.Skip(180).Take(72),
+            genome.Weights.Skip(252).Take(72),
             fanIn: NeuroConstants.NeuronsInHiddenLayer1,
             fanOut: NeuroConstants.NeuronsInHiddenLayer2);
         AssertWeightsWithinXavierLimit(
-            genome.Weights.Skip(252).Take(6),
+            genome.Weights.Skip(324).Take(6),
             fanIn: NeuroConstants.NeuronsInHiddenLayer2,
             fanOut: 1);
     }

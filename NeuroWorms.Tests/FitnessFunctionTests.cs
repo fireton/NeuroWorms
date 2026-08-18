@@ -18,7 +18,7 @@ public class FitnessFunctionTests
         worm.Eat();
         worm.Eat();
         worm.RegisterCollision(DeathReason.Wall);
-        worm.RegisterCollision(DeathReason.WormBody);
+        worm.RegisterCollision(DeathReason.OtherWorm);
         var fitness = new WeightedAgeFoodCollisionFitness();
 
         var result = fitness.Evaluate(worm);

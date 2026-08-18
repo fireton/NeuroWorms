@@ -71,24 +71,33 @@ try
         var result = engine.LastGenerationResult;
         var populationSize = result.HungerDeaths
             + result.WallDeaths
-            + result.WormBodyDeaths
+            + result.SelfBodyDeaths
+            + result.OtherWormDeaths
             + result.Survivors;
         var hungerDeathPercent = AsPercent(result.HungerDeaths, populationSize);
         var wallDeathPercent = AsPercent(result.WallDeaths, populationSize);
-        var wormBodyDeathPercent = AsPercent(result.WormBodyDeaths, populationSize);
+        var selfBodyDeathPercent = AsPercent(result.SelfBodyDeaths, populationSize);
+        var otherWormDeathPercent = AsPercent(result.OtherWormDeaths, populationSize);
 
+        Console.WriteLine(new string('-', 78));
         Console.WriteLine(
             $"Gen {result.Generation,6} | ticks {result.Ticks,4} | " +
-            $"best/avg: age {result.BestAge}/{result.AverageAge:F1} | " +
-            $"food {result.BestFoodEaten}/{result.AverageFoodEaten:F1} | " +
-            $"fit {result.BestFitness:F0}/{result.AverageFitness:F1}");
-        Console.WriteLine(
-            $"           | " +
-            $"hits W/B {result.WallCollisions,3}/{result.WormBodyCollisions,3} " +
-            $"({result.AverageCollisions:F1}/worm) | " +
-            $"deaths H/W/B {result.HungerDeaths,2}/{result.WallDeaths,2}/{result.WormBodyDeaths,2} " +
-            $"({hungerDeathPercent,3:F0}%/{wallDeathPercent,3:F0}%/{wormBodyDeathPercent,3:F0}%) | " +
             $"alive {result.Survivors,2} | {generationsPerSecond:F2} gen/s");
+        Console.WriteLine(
+            $"Champion | fit {result.ChampionFitness:F0} | age {result.ChampionAge} | " +
+            $"food {result.ChampionFoodEaten} | len {result.ChampionLength} | " +
+            $"hits {result.ChampionTotalCollisions} | death {FormatDeathReason(result.ChampionDeathReason)}");
+        Console.WriteLine(
+            $"Average  | fit {result.AverageFitness:F1} | age {result.AverageAge:F1} | " +
+            $"food {result.AverageFoodEaten:F1} | hits {result.AverageCollisions:F1}");
+        Console.WriteLine(
+            $"Hits     | W {result.WallCollisions,3} | S {result.SelfBodyCollisions,3} | " +
+            $"O {result.OtherWormCollisions,3}");
+        Console.WriteLine(
+            $"Deaths   | H {result.HungerDeaths,2} ({hungerDeathPercent,2:F0}%) | " +
+            $"W {result.WallDeaths,2} ({wallDeathPercent,2:F0}%) | " +
+            $"S {result.SelfBodyDeaths,2} ({selfBodyDeathPercent,2:F0}%) | " +
+            $"O {result.OtherWormDeaths,2} ({otherWormDeathPercent,2:F0}%)");
 
         lastReportGeneration = engine.CurrentGeneration;
         lastReportTime = stopwatch.Elapsed;
@@ -144,4 +153,9 @@ static void PrintHelp()
 static double AsPercent(int count, int total)
 {
     return total == 0 ? 0.0 : (double)count / total * 100.0;
+}
+
+static string FormatDeathReason(DeathReason deathReason)
+{
+    return deathReason == DeathReason.None ? "Alive" : deathReason.ToString();
 }

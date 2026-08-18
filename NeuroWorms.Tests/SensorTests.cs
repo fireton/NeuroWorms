@@ -140,6 +140,57 @@ public class SensorTests
     }
 
     [Fact]
+    public void EyeSightSeparatesOwnBodyFromOtherWorm()
+    {
+        var field = new Field(11, 11);
+        var worm = new Worm(
+            new Position(5, 5),
+            [new Position(6, 5)],
+            new StupidRandomBrain())
+        {
+            CurrentDirection = MoveDirection.Right,
+        };
+        var otherWorm = new Worm(
+            new Position(7, 5),
+            [],
+            new StupidRandomBrain());
+        worm.RenderToField(field);
+        otherWorm.RenderToField(field);
+        var eyeSight = new EyeSight(viewAngle: 180.0, viewDistance: 4.0);
+
+        eyeSight.DetectObjects(worm, field);
+
+        var own = Assert.Contains(ObjectType.OwnBody, eyeSight.Found);
+        Assert.Equal(0.0, own.AngleValue, 10);
+        Assert.Equal(-0.5, own.DistanceValue, 10);
+        var other = Assert.Contains(ObjectType.OtherWorm, eyeSight.Found);
+        Assert.Equal(0.0, other.AngleValue, 10);
+        Assert.Equal(0.0, other.DistanceValue, 10);
+    }
+
+    [Fact]
+    public void EyeSightReportsOwnBodyWithoutReportingAnotherWorm()
+    {
+        var field = new Field(11, 11);
+        var worm = new Worm(
+            new Position(5, 5),
+            [new Position(6, 5), new Position(7, 5)],
+            new StupidRandomBrain())
+        {
+            CurrentDirection = MoveDirection.Right,
+        };
+        worm.RenderToField(field);
+        var eyeSight = new EyeSight(viewAngle: 180.0, viewDistance: 4.0);
+
+        eyeSight.DetectObjects(worm, field);
+
+        var own = Assert.Contains(ObjectType.OwnBody, eyeSight.Found);
+        Assert.Equal(0.0, own.AngleValue, 10);
+        Assert.Equal(-0.5, own.DistanceValue, 10);
+        Assert.DoesNotContain(ObjectType.OtherWorm, eyeSight.Found);
+    }
+
+    [Fact]
     public void RightObstacleSensorLooksRightAndRefreshesAfterReset()
     {
         var field = new Field(5, 5);
@@ -205,14 +256,154 @@ public class SensorTests
         sensor.Reset(worm);
         Assert.Equal(0.0, sensor.GetValue());
 
-        worm.RegisterCollision(DeathReason.WormBody);
+        worm.RegisterCollision(DeathReason.SelfBody);
         sensor.Reset(worm);
         Assert.Equal(1.0, sensor.GetValue());
+    }
+
+    [Theory]
+    [InlineData(10, 8, -0.4, 0.0)]
+    [InlineData(10, 12, 0.4, 0.0)]
+    [InlineData(12, 10, 0.0, -0.4)]
+    [InlineData(8, 10, 0.0, 0.4)]
+    public void BodySenseProducesRelativeAvoidanceVector(
+        int segmentX,
+        int segmentY,
+        double expectedForward,
+        double expectedRight)
+    {
+        var worm = CreateBodySenseWorm([new Position(segmentX, segmentY)]);
+        var bodySense = new BodySense();
+        var forwardSensor = new OwnBodyAvoidanceForwardSensor(bodySense);
+        var rightSensor = new OwnBodyAvoidanceRightSensor(bodySense);
+        var pressureSensor = new OwnBodyPressureSensor(bodySense);
+
+        forwardSensor.Reset(worm);
+        rightSensor.Reset(worm);
+        pressureSensor.Reset(worm);
+
+        Assert.Equal(expectedForward, forwardSensor.GetValue(), 10);
+        Assert.Equal(expectedRight, rightSensor.GetValue(), 10);
+        Assert.Equal(0.2, pressureSensor.GetValue(), 10);
+    }
+
+    [Theory]
+    [InlineData(MoveDirection.Up, 12, 10)]
+    [InlineData(MoveDirection.Right, 10, 12)]
+    [InlineData(MoveDirection.Down, 8, 10)]
+    [InlineData(MoveDirection.Left, 10, 8)]
+    public void BodySenseRightSideIsRelativeToEveryDirection(
+        MoveDirection direction,
+        int segmentX,
+        int segmentY)
+    {
+        var worm = CreateBodySenseWorm([new Position(segmentX, segmentY)]);
+        worm.CurrentDirection = direction;
+        var bodySense = new BodySense();
+        var rightSensor = new OwnBodyAvoidanceRightSensor(bodySense);
+
+        rightSensor.Reset(worm);
+
+        Assert.Equal(-0.4, rightSensor.GetValue(), 10);
+    }
+
+    [Fact]
+    public void BodySenseIgnoresThreeSegmentsNearestTheHead()
+    {
+        var worm = CreateBodySenseWorm([]);
+        var bodySense = new BodySense();
+        var forwardSensor = new OwnBodyAvoidanceForwardSensor(bodySense);
+        var rightSensor = new OwnBodyAvoidanceRightSensor(bodySense);
+        var pressureSensor = new OwnBodyPressureSensor(bodySense);
+
+        forwardSensor.Reset(worm);
+        rightSensor.Reset(worm);
+        pressureSensor.Reset(worm);
+
+        Assert.Equal(0.0, forwardSensor.GetValue());
+        Assert.Equal(0.0, rightSensor.GetValue());
+        Assert.Equal(0.0, pressureSensor.GetValue());
+    }
+
+    [Fact]
+    public void BodyPressureRemainsWhenOppositeAvoidanceVectorsCancel()
+    {
+        var worm = CreateBodySenseWorm([
+            new Position(8, 10),
+            new Position(12, 10),
+        ]);
+        var bodySense = new BodySense();
+        var rightSensor = new OwnBodyAvoidanceRightSensor(bodySense);
+        var pressureSensor = new OwnBodyPressureSensor(bodySense);
+
+        rightSensor.Reset(worm);
+        pressureSensor.Reset(worm);
+
+        Assert.Equal(0.0, rightSensor.GetValue(), 10);
+        Assert.Equal(0.4, pressureSensor.GetValue(), 10);
+    }
+
+    [Fact]
+    public void FieldTracksOwnerThroughRenderingMovementAndRemoval()
+    {
+        var field = new Field(10, 10);
+        var worm = new Worm(
+            new Position(3, 3),
+            [new Position(2, 3), new Position(1, 3)],
+            new StupidRandomBrain())
+        {
+            CurrentDirection = MoveDirection.Right,
+        };
+
+        worm.RenderToField(field);
+
+        Assert.Equal(worm.OwnerId, field.GetOwnerId(new Position(3, 3)));
+        Assert.Equal(worm.OwnerId, field.GetOwnerId(new Position(2, 3)));
+        Assert.Equal(worm.OwnerId, field.GetOwnerId(new Position(1, 3)));
+
+        worm.Move(MoveDirection.Right, field);
+
+        Assert.Equal(worm.OwnerId, field.GetOwnerId(new Position(4, 3)));
+        Assert.Equal(worm.OwnerId, field.GetOwnerId(new Position(3, 3)));
+        Assert.Equal(worm.OwnerId, field.GetOwnerId(new Position(2, 3)));
+        Assert.Equal(Field.NoOwnerId, field.GetOwnerId(new Position(1, 3)));
+
+        worm.RemoveFromField(field);
+
+        Assert.Equal(Field.NoOwnerId, field.GetOwnerId(new Position(4, 3)));
+        Assert.Equal(Field.NoOwnerId, field.GetOwnerId(new Position(3, 3)));
+        Assert.Equal(Field.NoOwnerId, field.GetOwnerId(new Position(2, 3)));
+    }
+
+    [Fact]
+    public void DifferentWormsReceiveDifferentOwnerIds()
+    {
+        var first = CreateWorm();
+        var second = CreateWorm();
+
+        Assert.NotEqual(Field.NoOwnerId, first.OwnerId);
+        Assert.NotEqual(first.OwnerId, second.OwnerId);
     }
 
     private static Worm CreateWorm()
     {
         return new Worm(new Position(2, 2), [], new StupidRandomBrain())
+        {
+            CurrentDirection = MoveDirection.Up,
+        };
+    }
+
+    private static Worm CreateBodySenseWorm(IReadOnlyList<Position> sensedSegments)
+    {
+        var body = new List<Position>
+        {
+            new(10, 11),
+            new(10, 12),
+            new(10, 13),
+        };
+        body.AddRange(sensedSegments);
+
+        return new Worm(new Position(10, 10), body, new StupidRandomBrain())
         {
             CurrentDirection = MoveDirection.Up,
         };
